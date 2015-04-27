@@ -2,12 +2,6 @@
 require 'aws/aws-autoloader.php'; 
 use Aws\DynamoDb\DynamoDbClient;
 
-/*
-$client = DynamoDbClient::factory(array(
-	'profile' => 'dbapp-profile',
-	'region' => 'ap-southeast-2'
-	));
-	*/
 $client = DynamoDbClient::factory(array(
 	'region' => 'ap-southeast-2'
 	));
@@ -23,7 +17,15 @@ $client = DynamoDbClient::factory(array(
 </head>
 <body>
 	<div id="container">
-	<?php echo "Hello World" ?>
+	<?php 
+	echo "Hello World\n";
+
+	$result = $client->listTables();
+
+	foreach ($result['TableNames'] as $tableName) {
+		echo $tableName . "\n";
+	}
+	?>
 	</div>
 </body>
 </html>
