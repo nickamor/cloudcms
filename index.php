@@ -8,7 +8,9 @@ $client = DynamoDbClient::factory(array(
 	'region' => 'ap-southeast-2'
 	));
 	*/
-$client = DynamoDbClient::factory();
+$client = DynamoDbClient::factory(array(
+	'region' => 'ap-southeast-2'
+	));
 ?>
 
 <!DOCTYPE html>
