@@ -3,7 +3,6 @@ require 'aws/aws-autoloader.php';
 use Aws\DynamoDb\DynamoDbClient;
 
 $client = DynamoDbClient::factory(array(
-	'profile' => 'dbapp-profile',
 	'region' => 'ap-southeast-2'
 	));
 ?>
