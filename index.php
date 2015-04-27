@@ -22,7 +22,7 @@ $client = DynamoDbClient::factory(array(
 
 	$result = $client->listTables();
 
-	echo "Found " . $result['TableNames'].length() . " tables.\n";
+	echo "Found " . count($result['TableNames']) . " tables.\n";
 
 	foreach ($result['TableNames'] as $tableName) {
 		echo $tableName . "\n";
