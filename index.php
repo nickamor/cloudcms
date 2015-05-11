@@ -17,6 +17,7 @@ $client = DynamoDbClient::factory(array(
 </head>
 <body>
 	<div id="container">
+	<h1>List Tables</h1>
 	<?php 
 	$tablesIter = $client->getIterator('ListTables');
 

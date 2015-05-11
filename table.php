@@ -25,6 +25,7 @@ if ($tableName)
 </head>
 <body>
 	<div id="container">
+	<h1>View Table</h1>
 	<?php 
 
 	if ($tableName)
