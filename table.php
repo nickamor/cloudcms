@@ -36,7 +36,7 @@ if ($tableName)
 		echo "<table>";
 		foreach ($itemsIter as $item)
 		{
-			echo "<tr>" "</tr>";
+			echo "<tr>". $item . "</tr>";
 		}
 		echo "</table>";
 	}
