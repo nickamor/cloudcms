@@ -23,11 +23,11 @@ $client = DynamoDbClient::factory(array(
 
 	echo "<table>";
 	echo "<tr><th>Name</th></tr>";
-	echo "<tr>"
+	echo "<tr>";
 	foreach ($tablesIter as $tableName) {
 		echo "<td><a href='table.php?name=" . $tableName . "'>" . $tableName . "</a><td>";
 	}
-	echo "</tr>"
+	echo "</tr>";
 	echo "</table>";
 
 	?>
