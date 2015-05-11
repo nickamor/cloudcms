@@ -25,14 +25,39 @@ $s3client = S3Client::factory();
 	<div id="container">
 	<h1>Import File</h1>
 	<?php 
-	$s3object = s3client->getObject(array(
-		'Bucket' => "dbapp-upploads",
-		'Key' => "cities.tsv"));
 
-	$fileRows = str_getcsv($s3object['body'], "\n");
-	foreach ($fileRows as $row => $value) {
-		echo "$row = " . $value;
+	//// READ FILE FROM S3 ////
+
+	$s3object = $s3client->getObject(array(
+		'Bucket' => "dbapp-uploads",
+		'Key' => "cities.tsv"
+		));
+
+	$fileRows = explode("\n", $s3object['Body']);
+
+	echo "<h2>Items</h2>";
+	echo "<table>";
+	echo "<tr><th>name</th><th>countrycode</th><th>district</th><th>population</th></tr\n";
+	foreach ($fileRows as $row) {
+		$value = str_getcsv($row, "\t");
+
+		$parse = array(
+			'name' => $value[1],
+			'countrycode' => $value[2],
+			'district' => $value[3],
+			'population' => $value[4]);
+
+		echo "<tr>";
+		echo "<td>" . $parse['name'] . "</td>";
+		echo "<td>" . $parse['countrycode'] . "</td>";
+		echo "<td>" . $parse['district'] . "</td>";
+		echo "<td>" . $parse['population'] . "</td>";
+		echo "</tr>\n";
 	}
+	echo "</table>";
+
+	//// ADD ITEMS TO TABLE ////
+	
 
 	?>
 	</div>
