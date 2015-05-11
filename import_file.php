@@ -52,7 +52,7 @@ $s3client = S3Client::factory();
 
 	echo "<h2>Items</h2>";
 	echo "<table>";
-	echo "<tr><th>name</th><th>countrycode</th><th>district</th><th>population</th></tr\n";
+	echo "<tr><th>id</th><th>name</th><th>countrycode</th><th>district</th><th>population</th></tr\n";
 	foreach ($parsedItems as $parse) {
 		echo "<tr>";
 		echo "<td>" . $parse['id'] . "</td>";
@@ -67,16 +67,20 @@ $s3client = S3Client::factory();
 	//// ADD ITEMS TO TABLE ////
 
 	foreach ($parsedItems as $item) {
-		$response = $client->putItem(array(
-	    'TableName' => 'HelloWorld', 
-	    'Item' => array(
-	    	'id' => array('N' => $item['id']),
-	    	'name' => array('S' => $item['name']),
-	    	'countrycode' => array('S' => $item['countrycode']),
-	    	'district' => array('S' => $item['district']),
-	    	'population' => array('N' => $item['population'])
-	    	)
-		));
+		try {
+			$response = $client->putItem(array(
+		    'TableName' => 'HelloWorld', 
+		    'Item' => array(
+		    	'id' => array('N' => $item['id']),
+		    	'name' => array('S' => $item['name']),
+		    	'countrycode' => array('S' => $item['countrycode']),
+		    	'district' => array('S' => $item['district']),
+		    	'population' => array('N' => $item['population'])
+		    	)
+			));
+		} catch (Exception $e) {
+			print_r($e);
+		}
 	}
 
 	?>

@@ -13,6 +13,21 @@ if ($tableName)
 {
 	$pageTitle = $pageTitle . " " . $tableName;
 }
+
+function printTable()
+{
+	echo "<p>Viewing table '" . $tableName . "'.\n</p>\n";
+
+	$itemsIter = $client->getIterator('Scan', array(
+		'TableName' => $tableName));
+
+	echo "<table>";
+	foreach ($itemsIter as $item)
+	{
+		echo "<tr>". $item . "</tr>";
+	}
+	echo "</table>\n";
+}
 ?>
 
 <!DOCTYPE html>
@@ -30,19 +45,17 @@ if ($tableName)
 
 	if ($tableName)
 	{
-		$itemsIter = $client->getIterator('Scan', array(
-			'TableName' => $tableName));
+		try {
+			$describeTable = $client->describeTable(array('TableName' => $tableName));
 
-		echo "<table>";
-		foreach ($itemsIter as $item)
-		{
-			echo "<tr>". $item . "</tr>";
+			printTable();
+		} catch (Exception $e) {
+			echo "No table by the name '" . $tableName . "'!";
 		}
-		echo "</table>";
 	}
 	else
 	{
-		echo "No table by the name " . $tableName . "!";
+		echo "<p>No table name supplied.</p>\n";
 	}
 
 	?>
