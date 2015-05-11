@@ -34,20 +34,28 @@ $s3client = S3Client::factory();
 		));
 
 	$fileRows = explode("\n", $s3object['Body']);
-
-	echo "<h2>Items</h2>";
-	echo "<table>";
-	echo "<tr><th>name</th><th>countrycode</th><th>district</th><th>population</th></tr\n";
+	$parsedItems = array();
 	foreach ($fileRows as $row) {
 		$value = str_getcsv($row, "\t");
 
 		$parse = array(
+			'id' => $value[0],
 			'name' => $value[1],
 			'countrycode' => $value[2],
 			'district' => $value[3],
 			'population' => $value[4]);
 
+		array_push($parsedItems, $parse);
+	}
+
+	//// PRINT PARSEDITEMS ////
+
+	echo "<h2>Items</h2>";
+	echo "<table>";
+	echo "<tr><th>name</th><th>countrycode</th><th>district</th><th>population</th></tr\n";
+	foreach ($parsedItems as $parse) {
 		echo "<tr>";
+		echo "<td>" . $parse['id'] . "</td>";
 		echo "<td>" . $parse['name'] . "</td>";
 		echo "<td>" . $parse['countrycode'] . "</td>";
 		echo "<td>" . $parse['district'] . "</td>";
@@ -57,7 +65,19 @@ $s3client = S3Client::factory();
 	echo "</table>";
 
 	//// ADD ITEMS TO TABLE ////
-	
+
+	foreach ($parsedItems as $item) {
+		$response = $client->putItem(array(
+	    'TableName' => 'HelloWorld', 
+	    'Item' => array(
+	    	'id' => array('N' => $item['id']),
+	    	'name' => array('S' => $item['name']),
+	    	'countrycode' => array('S' => $item['countrycode']),
+	    	'district' => array('S' => $item['district']),
+	    	'population' => array('N' => $item['population'])
+	    	)
+		));
+	}
 
 	?>
 	</div>
