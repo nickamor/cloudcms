@@ -7,7 +7,7 @@ $client = DynamoDbClient::factory(array(
 	));
 
 $pageTitle = "View Table";
-$tableName = $_GET['table'];
+$tableName = $_GET['name'];
 
 if ($tableName)
 {
