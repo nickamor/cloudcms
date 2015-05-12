@@ -11,7 +11,7 @@ $tableName = $_GET['name'];
 
 if ($tableName)
 {
-	$pageTitle = $pageTitle . " " . $tableName;
+	$pageTitle = $pageTitle . " '" . $tableName . "'";
 }
 
 function printTable()
@@ -48,7 +48,18 @@ function printTable()
 		try {
 			$describeTable = $client->describeTable(array('TableName' => $tableName));
 
-			printTable();
+
+			echo "<p>Viewing table '" . $tableName . "'.\n</p>\n";
+
+			$itemsIter = $client->getIterator('Scan', array(
+				'TableName' => $tableName));
+
+			echo "<table>";
+			foreach ($itemsIter as $item)
+			{
+				echo "<tr>". $item . "</tr>";
+			}
+			echo "</table>\n";
 		} catch (Exception $e) {
 			echo "No table by the name '" . $tableName . "'!";
 		}
