@@ -48,7 +48,6 @@ function printTable()
 		try {
 			$describeTable = $client->describeTable(array('TableName' => $tableName));
 
-
 			echo "<p>Viewing table '" . $tableName . "'.\n</p>\n";
 
 			$itemsIter = $client->getIterator('Scan', array(
@@ -57,7 +56,8 @@ function printTable()
 			echo "<table>";
 			foreach ($itemsIter as $item)
 			{
-				echo "<tr>". $item . "</tr>";
+				//echo "<tr>". $item . "</tr>";
+				print_r($item);
 			}
 			echo "</table>\n";
 		} catch (Exception $e) {
