@@ -33,7 +33,7 @@ $s3client = S3Client::factory();
 		'Key' => "cities.tsv"
 		));
 
-	$fileRows = explode("\n", $s3object['Body'], 1);
+	$fileRows = explode("\n", $s3object['Body']);
 	$parsedItems = array();
 	foreach ($fileRows as $row) {
 		$value = str_getcsv($row, "\t");
@@ -71,13 +71,11 @@ $s3client = S3Client::factory();
 			$response = $client->putItem(array(
 		    'TableName' => 'HelloWorld', 
 		    'Item' => array(
-		    	'id' => array('N' => 112),
-		    	'HelloWorld' => array('S' => 'HELLOOOOOOO')
-		    	//'ID' => array('N' => $item['id']),
-		    	//'name' => array('S' => $item['name']),
-		    	//'countrycode' => array('S' => $item['countrycode']),
-		    	//'district' => array('S' => $item['district']),
-		    	//'population' => array('N' => $item['population'])
+		    	'id' => array('N' => $item['id']),
+		    	'name' => array('S' => $item['name']),
+		    	'countrycode' => array('S' => $item['countrycode']),
+		    	'district' => array('S' => $item['district']),
+		    	'population' => array('N' => $item['population'])
 		    	)
 			));
 		} catch (Exception $e) {
