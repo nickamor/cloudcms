@@ -1,7 +1,14 @@
 <ul>
 <?php
-foreach ($topics as $topic) {
-    printf('<li><a href="%s">%s</a></li>', $topic['id'], $topic['name']);
+if (count($topics) == 0) {
+    echo 'No topics to display';
+} else {
+    foreach ($topics as $topic) {
+        Flight::render('topic', 
+                array(
+                        'topic' => $topic
+                ));
+    }
 }
 
 // create new topic
