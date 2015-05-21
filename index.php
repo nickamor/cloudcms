@@ -1,28 +1,46 @@
 <?php
+require 'flight/Flight.php';
+
 require 'aws/aws-autoloader.php';
 use Aws\DynamoDb\DynamoDbClient;
 
-require 'flight/Flight.php';
-
-static $appTableName = 'dbapp-table';
 
 class DbHelper
 {
-	public function getClient()
-	{
-		return DynamoDbClient::factory(array(
-                            'region' => 'ap-southeast-2'
-                    ));
-	}
+	public static $appTableName = 'dbapp-table';
+
+    public $client = null;
+
+    public function DbHelper()
+    {
+        $client = DynamoDbClient::factory(array(
+            'region' => 'ap-southeast-2'
+        ));
+    }
+
+    public function client()
+    {
+        return $this->client;
+    }
 }
 
 class Topic
 {
 
+    public static function all()
+    {
+        // get all
+    }
+
+    public static function where($condition)
+    {
+        // get some
+    }
+
     /**
      * createTopic
      */
-    public static function createTopic ($newTopic)
+    public static function createTopic($newTopic)
     {
         $createTopicSuccess = null;
         
@@ -36,7 +54,7 @@ class Topic
     /**
      * readTopic - show all threads within a topic
      */
-    public static function readTopic ($topicID)
+    public static function readTopic($topicID)
     {
         $topicExists = null;
         
@@ -50,7 +68,7 @@ class Topic
     /**
      * updateTopic
      */
-    public static function updateTopic ($topicID, $newTopic)
+    public static function updateTopic($topicID, $newTopic)
     {
         $topicExists = null;
         
@@ -64,7 +82,7 @@ class Topic
     /**
      * deleteTopic
      */
-    public static function deleteTopic ($topicID)
+    public static function deleteTopic($topicID)
     {
         $topicExists = null;
         
@@ -82,24 +100,24 @@ class Thread
     /**
      * createThread - start a new thread
      */
-    public static function createThread ($topicID, $newThread)
+    public static function createThread($topicID, $newThread)
     {
         $thread = array(
-                'id' => array(
-                        'N' => $newID
-                ),
-                'type' => array(
-                        'S' => 'thread'
-                ),
-                'title' => array(
-                        'S' => $threadTitle
-                ),
-                'text' => array(
-                        'S' => $treadText
-                )
+            'id' => array(
+                'N' => $newID
+            ),
+            'type' => array(
+                'S' => 'thread'
+            ),
+            'title' => array(
+                'S' => $threadTitle
+            ),
+            'text' => array(
+                'S' => $treadText
+            )
         );
         $thread['creationDate'] = array(
-                'N' => getUnixTime()
+            'N' => getUnixTime()
         );
         
         $createThreadSuccess = null;
@@ -118,7 +136,7 @@ class Thread
      * @param int $thread
      *            Thread ID
      */
-    public static function readThread ($threadID)
+    public static function readThread($threadID)
     {
         $threadExists = null;
         
@@ -132,7 +150,7 @@ class Thread
     /**
      * updateThread
      */
-    public static function updateThread ($threadID, $newThread)
+    public static function updateThread($threadID, $newThread)
     {
         $threadExists = null;
         
@@ -149,7 +167,7 @@ class Thread
      * @param int $thread
      *            Thread ID of thread to be deleted
      */
-    public static function deleteThread ($threadID)
+    public static function deleteThread($threadID)
     {
         $threadExists = null;
         
@@ -161,13 +179,19 @@ class Thread
     }
 }
 
+/**
+ * Comment - model for comments
+ *
+ * @author nick
+ *        
+ */
 class Comment
 {
 
     /**
      * createComment
      */
-    public static function createComment ($threadID, $newComment)
+    public static function createComment($threadID, $newComment)
     {
         // create comment
     }
@@ -175,7 +199,7 @@ class Comment
     /**
      * readComment
      */
-    public static function readComment ($commentID)
+    public static function readComment($commentID)
     {
         $commentExists = null;
         
@@ -189,7 +213,7 @@ class Comment
     /**
      * updateComment
      */
-    public static function updateComment ($commentID, $newComment)
+    public static function updateComment($commentID, $newComment)
     {
         $commentExists = null;
         
@@ -203,7 +227,7 @@ class Comment
     /**
      * deleteComment
      */
-    public static function deleteComment ($commentID)
+    public static function deleteComment($commentID)
     {
         $commentExists = null;
         
@@ -216,154 +240,258 @@ class Comment
 }
 
 /**
- * show all topics
+ * methods for setting up and tearing down the database
+ *
+ * @author nick
+ *        
  */
-Flight::route('GET /', 
-        function  ()
-        {
-        	echo "hello world";
-            // get topics
-            $client = Flight::db()->getClient();
-        	
-            $topics = $client->getIterator('Scan', 
-                    array(
-                            'TableName' => $appTableName
-                    ));
-            
-            // render
-            Flight::render('header', 
-                    array(
-                            'heading' => 'All Topics'
-                    ), 'header_content');
-            Flight::render('topics_body', 
-                    array(
-                            'topics' => $topics
-                    ), 'body_content');
-            
-            Flight::render('layout', 
-                    array(
-                            'title' => 'dbapp'
-                    ));
-        });
+class Migration
+{
+
+    /**
+     * bring up database
+     */
+    public static function up()
+    {
+        $client = DynamoDbClient::factory(array(
+            'region' => 'ap-southeast-2'
+        ));
+        
+        $client->createTable(array(
+            'TableName' => DbHelper::$appTableName,
+            'AttributeDefinitions' => array(
+                array(
+                    'AttributeName' => 'id',
+                    'AttributeType' => 'N'
+                ),
+                array(
+                    'AttributeName' => 'type',
+                    'AttributeType' => 'S'
+                )
+            ),
+            'KeySchema' => array(
+                array(
+                    'AttributeName' => 'id',
+                    'KeyType' => 'HASH'
+                ),
+                array(
+                    'AttributeName' => 'type',
+                    'KeyType' => 'HASH'
+                )
+            ),
+            'ProvisionedThroughput' => array(
+                'ReadCapacityUnits' => 10,
+                'WriteCapacityUnits' => 20
+            )
+        ));
+        
+        $client->waitUntilTableExists(array(
+            'TableName' => DbHelper::$appTableName
+        ));
+        
+        echo 'Table created';
+    }
+
+    /**
+     * tear down database table
+     */
+    public static function down()
+    {
+        $client = DynamoDbClient::factory(array(
+            'region' => 'ap-southeast-2'
+        ));
+        
+        $client->deleteTable(array(
+            'TableName' => DbHelper::$appTableName
+        ));
+        
+        $client->waitUntilTableNotExists(array(
+            'TableName' => DbHelper::$appTableName
+        ));
+        
+        echo 'Table deleted';
+    }
+}
+
+class Admin
+{
+
+    public static function listTables()
+    {
+        $client = DynamoDbClient::factory(array(
+            'region' => 'ap-southeast-2'
+        ));
+        
+        $tablesIter = $client->getIterator('ListTables');
+        
+        echo "<table>";
+        echo "<tr><th>Name</th></tr>";
+        foreach ($tablesIter as $tableName) {
+            echo "<tr>";
+            echo "<td><a href='table.php?name=" . $tableName . "'>" . $tableName . "</a><td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+    }
+
+    public static function hello()
+    {
+        echo 'Hello World!';
+    }
+}
+
+Flight::route('/admin/createtable', array(
+    'Migration',
+    'up'
+));
+
+Flight::route('/admin/deletetable', array(
+    'Migration',
+    'down'
+));
+
+Flight::route('/admin/listtables', array(
+    'Admin',
+    'listTables'
+));
+
+Flight::route('/admin/hello', array(
+    'Admin',
+    'hello'
+));
+
+class View
+{
+
+    /**
+     * show all topics
+     */
+    public static function allTopics()
+    {
+        // get topics
+        $client = Flight::db()->client();
+        
+        $topics = $client->getIterator('Scan', array(
+            'TableName' => DbHelper::$appTableName
+        ));
+        
+        // render
+        Flight::render('header', array(
+            'heading' => 'All Topics'
+        ), 'header_content');
+        Flight::render('topics_body', array(
+            'topics' => $topics
+        ), 'body_content');
+        
+        Flight::render('layout', array(
+            'title' => 'dbapp'
+        ));
+    }
+}
+
+Flight::route('GET /', array(
+    'View',
+    'allTopics'
+));
 
 /**
  * create a new topic
  */
-Flight::route('POST /', 
-        function  ()
-        {
-            $createTopicSuccess = null;
-            
-            if ($createTopicSuccess) {
-                // redirect to new topic
-            }
-        });
+Flight::route('POST /', function () {
+    $createTopicSuccess = null;
+    
+    if ($createTopicSuccess) {
+        // redirect to new topic
+    }
+});
 
 /**
  * get topic
  */
-Flight::route('GET /@topic', 
-        function  ()
-        {
-            $topicExists = null;
-            
-            if ($topicExists) {
-                
-                Flight::render('topic_header', 
-                        array(
-                                'topic' => $topic
-                        ), 'header_content');
-                Flight::render('threads_body', 
-                        array(
-                                'topic' => $topic
-                        ), 'body_content');
-                
-                Flight::render('layout', 
-                        array(
-                                'title' => 'dbapp'
-                        ));
-            }
-        });
+Flight::route('GET /@topic', function () {
+    $topicExists = null;
+    
+    if ($topicExists) {
+        
+        Flight::render('topic_header', array(
+            'topic' => $topic
+        ), 'header_content');
+        Flight::render('threads_body', array(
+            'topic' => $topic
+        ), 'body_content');
+        
+        Flight::render('layout', array(
+            'title' => 'dbapp'
+        ));
+    }
+});
 
 /**
  * post new comment
  */
-Flight::route('POST /@topic', function  ()
-{
+Flight::route('POST /@topic', function () {
     // post new comment
 });
 
-Flight::route('PUSH /@topic', function  ()
-{
+Flight::route('PUSH /@topic', function () {
     // update topic
 });
 
-Flight::route('DELETE /@topic', function  ()
-{
+Flight::route('DELETE /@topic', function () {
     // delete topic
 });
 
 /**
- * get thread
+ * return view
  */
-Flight::route('GET /@topic/@thread', 
-        function  ()
-        {
-            $threadExists = null;
-            
-            if ($threadExists) {
-                // thread exists
-            } else { 
-            	Flight::render('header',
-            	        array(
-            	                'header' => 'Error'
-            	        ), 'header_content');
-            	Flight::render('body',
-            	        array(
-            	                'topic' => 'No such thread exists'
-            	        ), 'body_content');
-            	
-            	Flight::render('layout',
-            	        array(
-            	                'title' => 'dbapp - No such thread exists'
-            	        ));
-            }
-        });
-
-Flight::route('POST /@topic/@thread', 
-        function  ()
-        {
-            // post comment
-        });
-
-Flight::route('PUT /@topic/@thread', 
-        function  ()
-        {
-            // update thread
-        });
-
-Flight::route('DELETE /@topic/@thread', 
-        function  ()
-        {
-            // delete thread
-        });
-
-Flight::route('PUT /@topic/@thread/@comment', 
-        function  ()
-        {
-            // update comment
-        });
-
-Flight::route('DELETE /@topic/@thread/@comment', 
-        function  ()
-        {
-            // delete comment
-        });
+function view($header, $body)
+{
+    // return render
+}
 
 /**
- * set up DynamoDB client
+ * get thread
  */
-//Flight::register('db', 'DbHelper');
+Flight::route('GET /@topic/@thread', function () {
+    $threadExists = null;
+    
+    if ($threadExists) {
+        // thread exists
+    } else {
+        Flight::render('header', array(
+            'header' => 'Error'
+        ), 'header_content');
+        Flight::render('body', array(
+            'topic' => 'No such thread exists'
+        ), 'body_content');
+        
+        Flight::render('layout', array(
+            'title' => 'dbapp - No such thread exists'
+        ));
+    }
+});
+
+Flight::route('POST /@topic/@thread', function () {
+    // post comment
+});
+
+Flight::route('PUT /@topic/@thread', function () {
+    // update thread
+});
+
+Flight::route('DELETE /@topic/@thread', function () {
+    // delete thread
+});
+
+Flight::route('PUT /@topic/@thread/@comment', function () {
+    // update comment
+});
+
+Flight::route('DELETE /@topic/@thread/@comment', function () {
+    // delete comment
+});
+
+Flight::register('db', 'DbHelper');
 
 Flight::start();
 ?>
