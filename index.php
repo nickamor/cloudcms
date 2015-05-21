@@ -3,24 +3,24 @@ require 'flight/Flight.php';
 
 require 'aws/aws-autoloader.php';
 use Aws\DynamoDb\DynamoDbClient;
-
+use Aws\CloudFront\Exception\Exception;
 
 class DbHelper
 {
-	public static $appTableName = 'dbapp-table';
 
-    public $client = null;
+    public static $appTableName = 'dbapp-table';
 
-    public function DbHelper()
+    public static function client()
     {
-        $client = DynamoDbClient::factory(array(
+        $factoryOptions = array(
             'region' => 'ap-southeast-2'
-        ));
-    }
-
-    public function client()
-    {
-        return $this->client;
+        );
+        
+        if (! isset($_ENV['AWS_ACCESS_KEY_ID'])) {
+            $factoryOptions['profile'] = 'dbapp-profile';
+        }
+        
+        return DynamoDbClient::factory($factoryOptions);
     }
 }
 
@@ -253,43 +253,49 @@ class Migration
      */
     public static function up()
     {
-        $client = DynamoDbClient::factory(array(
-            'region' => 'ap-southeast-2'
-        ));
+        echo "creating table...\n";
         
-        $client->createTable(array(
-            'TableName' => DbHelper::$appTableName,
-            'AttributeDefinitions' => array(
-                array(
-                    'AttributeName' => 'id',
-                    'AttributeType' => 'N'
+        $client = DbHelper::client();
+        
+        try {
+            $result = $client->createTable(array(
+                'TableName' => DbHelper::$appTableName,
+                'AttributeDefinitions' => array(
+                    array(
+                        'AttributeName' => 'id',
+                        'AttributeType' => 'N'
+                    ),
+                    array(
+                        'AttributeName' => 'created',
+                        'AttributeType' => 'S'
+                    )
                 ),
-                array(
-                    'AttributeName' => 'type',
-                    'AttributeType' => 'S'
-                )
-            ),
-            'KeySchema' => array(
-                array(
-                    'AttributeName' => 'id',
-                    'KeyType' => 'HASH'
+                'KeySchema' => array(
+                    array(
+                        'AttributeName' => 'id',
+                        'KeyType' => 'HASH'
+                    ),
+                    array(
+                        'AttributeName' => 'created',
+                        'KeyType' => 'RANGE'
+                    )
                 ),
-                array(
-                    'AttributeName' => 'type',
-                    'KeyType' => 'HASH'
+                'ProvisionedThroughput' => array(
+                    'ReadCapacityUnits' => 10,
+                    'WriteCapacityUnits' => 20
                 )
-            ),
-            'ProvisionedThroughput' => array(
-                'ReadCapacityUnits' => 10,
-                'WriteCapacityUnits' => 20
-            )
-        ));
+            ));
+            
+            $client->waitUntilTableExists(array(
+                'TableName' => DbHelper::$appTableName
+            ));
+        } catch (Exception $e) {
+            echo "Unexpected error.\n";
+            print_r($e);
+            return;
+        }
         
-        $client->waitUntilTableExists(array(
-            'TableName' => DbHelper::$appTableName
-        ));
-        
-        echo 'Table created';
+        echo 'Table created.';
     }
 
     /**
@@ -297,19 +303,26 @@ class Migration
      */
     public static function down()
     {
-        $client = DynamoDbClient::factory(array(
-            'region' => 'ap-southeast-2'
-        ));
+        echo "Deleting table...\n";
         
-        $client->deleteTable(array(
-            'TableName' => DbHelper::$appTableName
-        ));
+        $client = DbHelper::client();
+        
+        try {
+            $result = $client->deleteTable(array(
+                'TableName' => DbHelper::$appTableName
+            ));
+        } catch (Aws\DynamoDB\Exception\ResourceNotFoundException $e) {
+            echo "No such table exists.\n";
+            return;
+        } catch (Exception $e) {
+            print_r($e);
+        }
         
         $client->waitUntilTableNotExists(array(
             'TableName' => DbHelper::$appTableName
         ));
         
-        echo 'Table deleted';
+        echo 'Table deleted.\n';
     }
 }
 
@@ -318,20 +331,15 @@ class Admin
 
     public static function listTables()
     {
-        $client = DynamoDbClient::factory(array(
-            'region' => 'ap-southeast-2'
-        ));
+        $client = DbHelper::client();
         
         $tablesIter = $client->getIterator('ListTables');
         
-        echo "<table>";
-        echo "<tr><th>Name</th></tr>";
+        echo "<ul>";
         foreach ($tablesIter as $tableName) {
-            echo "<tr>";
-            echo "<td><a href='table.php?name=" . $tableName . "'>" . $tableName . "</a><td>";
-            echo "</tr>";
+            printf("<li>%s</li>", $tableName);
         }
-        echo "</table>";
+        echo "</ul>";
     }
 
     public static function hello()
