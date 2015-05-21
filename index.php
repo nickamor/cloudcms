@@ -263,11 +263,11 @@ class Migration
                 'AttributeDefinitions' => array(
                     array(
                         'AttributeName' => 'id',
-                        'AttributeType' => 'N'
+                        'AttributeType' => 'S'
                     ),
                     array(
                         'AttributeName' => 'created',
-                        'AttributeType' => 'S'
+                        'AttributeType' => 'N'
                     )
                 ),
                 'KeySchema' => array(
@@ -303,7 +303,7 @@ class Migration
      */
     public static function down()
     {
-        echo "Deleting table...\n";
+        echo "Deleting table...\n"; // double string
         
         $client = DbHelper::client();
         
@@ -312,7 +312,7 @@ class Migration
                 'TableName' => DbHelper::$appTableName
             ));
         } catch (Aws\DynamoDB\Exception\ResourceNotFoundException $e) {
-            echo "No such table exists.\n";
+            echo 'No such table exists.\n';
             return;
         } catch (Exception $e) {
             print_r($e);
@@ -322,7 +322,7 @@ class Migration
             'TableName' => DbHelper::$appTableName
         ));
         
-        echo 'Table deleted.\n';
+        echo 'Table deleted.';
     }
 }
 
@@ -346,6 +346,22 @@ class Admin
     {
         echo 'Hello World!';
     }
+    
+    public static function showTable()
+    {
+        $client = DbHelper::client();
+
+        $itemsIter = $client->getIterator ( 'Scan', array (
+            'TableName' => DbHelper::$appTableName
+        ) );
+        
+        echo "<ul>";
+        foreach ($itemsIter as $item)
+        {
+        	printf("<li>%s - %d</li>", $item['id'], $item['created']);
+        }
+        echo "</ul>";
+    }
 }
 
 Flight::route('/admin/createtable', array(
@@ -361,6 +377,11 @@ Flight::route('/admin/deletetable', array(
 Flight::route('/admin/listtables', array(
     'Admin',
     'listTables'
+));
+
+Flight::route('/admin/showtable', array(
+    'Admin',
+    'showTable'
 ));
 
 Flight::route('/admin/hello', array(
