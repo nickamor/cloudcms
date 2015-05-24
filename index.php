@@ -3,10 +3,18 @@ require 'vendor/flight/Flight.php';
 require 'vendor/aws/aws-autoloader.php';
 require 'vendor/faker/autoload.php';
 
+use Aws\DynamoDb\DynamoDbClient;
+use Aws\DynamoDb\Marshaler;
+use Aws\DynamoDb\Exception;
+
 date_default_timezone_set ( 'Etc/Universal' );
 
-use Aws\DynamoDb\DynamoDbClient;
-use Aws\DynamoDb\Exception;
+/**
+ * handles request input
+ *
+ * @author nick
+ *        
+ */
 class Controller {
 	
 	/**
@@ -95,8 +103,8 @@ class Controller {
 		$i = 0;
 		for(; $i < $num; $i ++) {
 			$blogpost = array (
-					'title' => $faker->text(25),
-					'content' => $faker->text(800) 
+					'title' => $faker->text ( 25 ),
+					'content' => $faker->text ( 800 ) 
 			);
 			
 			// insert blogpost, break on error
@@ -105,7 +113,7 @@ class Controller {
 			}
 		}
 		
-		$status = "Added $i items.";
+		$status = "Created $i blog posts.";
 		
 		// render page content
 		Flight::render ( 'admin/message', array (
@@ -117,6 +125,26 @@ class Controller {
 				'pagetitle' => 'Insert Faked Data' 
 		) );
 	}
+	
+	/**
+	 * post some randomised comments
+	 */
+	public static function fakeComments($id, $num) {
+		if (is_null ( $num )) {
+			$num = 25;
+		}
+		
+		for($i = 0; $i < $num; $i ++) {
+			DbHelper::newBlogPostComment ( $id, [ 
+					'author' => 'Anon',
+					'content' => 'Hello World' 
+			] );
+		}
+		
+		echo "Added $i comments.";
+	}
+	
+	// delete all blog posts and show outcome
 	public static function deleteAllBlogPosts() {
 		DbHelper::deleteAllBlogPosts ();
 		
@@ -132,8 +160,29 @@ class Controller {
 				'pagetitle' => 'Delete All Blog Posts' 
 		) );
 	}
+	
+	/**
+	 * post new comment to blog post from request
+	 */
+	public static function postNewComment() {
+		$request = Flight::request ();
+		
+		// build comment from request
+		$id = $request->data->id;
+		$comment = array (
+				'author' => $request->data->author,
+				'content' => $request->data->content 
+		);
+		
+		DbHelper::newBlogPostComment ( $id, $comment );
+		
+		Flight::redirect ( $request->referrer . '#bottom' );
+	}
 }
 class DbHelper {
+	/**
+	 * name of the database table for blog posts
+	 */
 	private static $dbapp_blogposts = 'dbapp-blogposts';
 	
 	/**
@@ -162,38 +211,20 @@ class DbHelper {
 	 *        	the blog post to add
 	 * @return ID of the newly added blog post, or 0 on error
 	 */
-	public static function newBlogPost($blogpost, $time = 0) {
+	public static function newBlogPost($blogpost) {
 		$client = DbHelper::client ();
+		$marshaler = new Marshaler ();
 		
-		if ($time == 0) {
-			$time = time ();
-		}
-		
-		$id = rand ( 100000, 999999 ); // TODO - test for uniqueness
-		                               
-		// build item
-		$newItem = array (
-				'id' => array (
-						'N' => $id 
-				),
-				'time' => array (
-						'N' => $time 
-				),
-				'title' => array (
-						'S' => $blogpost ['title'] 
-				),
-				'content' => array (
-						'S' => $blogpost ['content'] 
-				) 
-		);
+		$blogpost ['id'] = rand ( 100000, 999999 );
+		$blogpost ['time'] = time ();
 		
 		try {
 			$client->putItem ( array (
 					'TableName' => DbHelper::$dbapp_blogposts,
-					'Item' => $newItem 
+					'Item' => $marshaler->marshalItem ( $blogpost ) 
 			) );
 			
-			return $id;
+			return $blogpost ['id'];
 		} catch ( Exception $e ) {
 			return - 1;
 		}
@@ -210,6 +241,7 @@ class DbHelper {
 	 */
 	public static function getBlogPost($id) {
 		$client = DbHelper::client ();
+		$marshaler = new Marshaler ();
 		
 		try {
 			$response = $client->getItem ( array (
@@ -221,25 +253,7 @@ class DbHelper {
 					) 
 			) );
 			
-			$blogpost = array ();
-			
-			// map database values to object
-			$blogpost ['id'] = $response ['Item'] ['id'] ['N'];
-			$blogpost ['time'] = $response ['Item'] ['time'] ['N'];
-			$blogpost ['title'] = $response ['Item'] ['title'] ['S'];
-			$blogpost ['content'] = $response ['Item'] ['content'] ['S'];
-			
-			if (isset ( $response ['Item'] ['comments'] ['L'] )) {
-				$blogpost ['comments'] = array ();
-				foreach ( $response ['Item'] ['comments'] ['L'] as $comment ) {
-					array_push ( $blogpost ['comments'], array (
-							'content' => $comment ['M'] ['content'] ['S'],
-							'time' => $comment ['M'] ['time'] ['N'] 
-					) );
-				}
-			}
-			
-			return $blogpost;
+			return $marshaler->unmarshalItem ( $response ['Item'] );
 		} catch ( Exception $e ) {
 			return false;
 		}
@@ -282,15 +296,11 @@ class DbHelper {
 		$scanOptions ['Count'] = false;
 		$scan = $client->getIterator ( 'Scan', $scanOptions );
 		
-		// build blog posts array
+		// return blog posts array
+		$marshaler = new Marshaler ();
 		$blogposts = array ();
 		foreach ( $scan as $item ) {
-			array_push ( $blogposts, array (
-					'id' => $item ['id'] ['N'],
-					'time' => $item ['time'] ['N'],
-					'title' => $item ['title'] ['S'],
-					'content' => $item ['content'] ['S'] 
-			) );
+			array_push ( $blogposts, $marshaler->unmarshalItem ( $item ) );
 		}
 		
 		return $blogposts;
@@ -299,7 +309,41 @@ class DbHelper {
 	/**
 	 * add a new comment to a blog post
 	 */
-	public static function newBlogPostComment($id) {
+	public static function newBlogPostComment($id, $comment) {
+		$client = DbHelper::client ();
+		
+		// TODO - use marshaler
+		$comment_item = array (
+				'author' => array (
+						'S' => $comment ['author'] 
+				),
+				'content' => array (
+						'S' => $comment ['content'] 
+				),
+				'time' => array (
+						'N' => time () 
+				) 
+		);
+		
+		// update the blog post
+		$response = $client->updateItem ( array (
+				'TableName' => DbHelper::$dbapp_blogposts,
+				'Key' => array (
+						'id' => [ 
+								'N' => $id 
+						] 
+				),
+				'UpdateExpression' => 'SET comments = list_append(if_not_exists(comments, :newcomment), :newcomment)',
+				'ExpressionAttributeValues' => array (
+						':newcomment' => array (
+								'L' => array (
+										'0' => array (
+												'M' => $comment_item 
+										) 
+								) 
+						) 
+				) 
+		) );
 	}
 	
 	/**
@@ -491,9 +535,19 @@ Flight::route ( '/@page:[0-9]+', array (
 		'allBlogPosts' 
 ) );
 
-Flight::route ( '/blog/@id:[0-9]+', array (
+Flight::route ( 'GET /blog/@id:[0-9]+', array (
 		'View',
 		'blogPost' 
+) );
+
+Flight::route ( 'POST /blog/@id:[0-9]+', array (
+		'Controller',
+		'postNewComment' 
+) );
+
+Flight::route ( '/blog/@id:[0-9]+/fakecomments(/@num:[0-9]+)', array (
+		'Controller',
+		'fakeComments' 
 ) );
 
 Flight::start ();

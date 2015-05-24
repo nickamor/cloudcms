@@ -7,14 +7,23 @@
 
 <div class="container comments">
 	<h3>Comments</h3>
-<?php if (isset($blogpost['comments'])):?>
-<?php foreach ($blogpost['comments'] as $comment):?>
-<p><?php echo $comment['content']; ?></p>
-<?php endforeach;?>
-<?php else:?>
-<p>Be the first to comment!</p>
-<?php endif;?>
-<form id="new-comment" action="" method="POST">
+	
+	<?php if (isset($blogpost['comments'])):?>
+	<?php foreach ($blogpost['comments'] as $comment):?>
+	<?php if (isset($blogpost['author'])):?>
+	<p><?php echo $comment['author']?> wrote on <?php date('r', $comment['time']); ?></p>
+	<?php else:?>
+	<p>Anonymous wrote on <?php date('r', $comment['time']); ?></p>
+	<?php endif;?>
+	<p><?php echo $comment['content']; ?></p>
+	<?php endforeach;?>
+	
+	<?php else:?>
+	<p>Be the first to comment!</p>
+	<?php endif;?>
+	
+	<form id="new-comment" action="" method="POST">
+		<input name="id" hidden="true" type="text" value="<?php echo $blogpost['id']; ?>">
 		<div>
 			<label for="author">Name</label><input name="author" type="text">
 		</div>
