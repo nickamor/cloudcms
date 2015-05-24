@@ -1,526 +1,482 @@
 <?php
-require 'flight/Flight.php';
+require 'vendor/flight/Flight.php';
+require 'vendor/aws/aws-autoloader.php';
+require 'vendor/faker/autoload.php';
 
-require 'aws/aws-autoloader.php';
+date_default_timezone_set ( 'Etc/Universal' );
+
 use Aws\DynamoDb\DynamoDbClient;
-use Aws\CloudFront\Exception\Exception;
-
-class DbHelper
-{
-
-    public static $appTableName = 'dbapp-table';
-
-    public static function client()
-    {
-        $factoryOptions = array(
-            'region' => 'ap-southeast-2'
-        );
-        
-        if (! isset($_ENV['AWS_ACCESS_KEY_ID'])) {
-            $factoryOptions['profile'] = 'dbapp-profile';
-        }
-        
-        return DynamoDbClient::factory($factoryOptions);
-    }
+use Aws\DynamoDb\Exception;
+class Controller {
+	
+	/**
+	 * create new blog post from request data
+	 */
+	public static function postNewBlogPost() {
+		$request = Flight::request ();
+		
+		// build blogpost from request body
+		$blogpost = array (
+				'title' => $request ['POST'] ['title'] 
+		);
+		
+		$newBlogPostID = DbHelper::newBlogPost ( $blogpost );
+		if ($newBlogPostID > 0) {
+			Flight::redirect ( "/blog/$newBlogPostID", 201 );
+		} else {
+			// TODO - show error
+		}
+	}
+	
+	/**
+	 * create blog table and show outcome
+	 */
+	public static function createTable() {
+		if (DbHelper::migrationUp ()) {
+			$status = 'Table created.';
+		} else {
+			$status = 'Unexpected error.';
+		}
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Create Table' 
+		) );
+	}
+	
+	/**
+	 * delete blog table and show outcome
+	 */
+	public static function deleteTable() {
+		if (DbHelper::migrationDown ()) {
+			$status = 'Table deleted.';
+		} else {
+			$status = 'Unexpected error.';
+		}
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Delete Table' 
+		) );
+	}
+	
+	/**
+	 * post some randomised blog posts
+	 */
+	public static function fakeBlogPosts() {
+		$faker = Faker\Factory::create ( 'en_AU' );
+		
+		$i = 0;
+		for(; $i < 25; $i ++) {
+			$blogpost = array (
+					'title' => $faker->sentence,
+					'content' => $faker->paragraphs ( 3 ) 
+			);
+			
+			// insert blogpost, break on error
+			if (DbHelper::newBlogPost ( $blogpost, $faker->unixTime ) <= 0) {
+				break;
+			}
+		}
+		
+		$status = "Added $i items.";
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Insert Faked Data' 
+		) );
+	}
+	public static function deleteAllBlogPosts() {
+		DbHelper::deleteAllBlogPosts ();
+		
+		$status = 'All blog posts deleted.';
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Delete All Blog Posts' 
+		) );
+	}
 }
-
-class Topic
-{
-
-    public static function all()
-    {
-        // get all
-    }
-
-    public static function where($condition)
-    {
-        // get some
-    }
-
-    /**
-     * createTopic
-     */
-    public static function createTopic($newTopic)
-    {
-        $createTopicSuccess = null;
-        
-        if ($createTopicSuccess) {
-            Flight::redirect('/' . $topic, 201);
-        } else {
-            // could not create topic
-        }
-    }
-
-    /**
-     * readTopic - show all threads within a topic
-     */
-    public static function readTopic($topicID)
-    {
-        $topicExists = null;
-        
-        if ($topicExists) {
-            // return topic
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * updateTopic
-     */
-    public static function updateTopic($topicID, $newTopic)
-    {
-        $topicExists = null;
-        
-        if ($topicExists) {
-            // update topic
-        } else {
-            // create topic
-        }
-    }
-
-    /**
-     * deleteTopic
-     */
-    public static function deleteTopic($topicID)
-    {
-        $topicExists = null;
-        
-        if ($topicExists) {
-            // update topic
-        } else {
-            // no such topic exists
-        }
-    }
-}
-
-class Thread
-{
-
-    /**
-     * createThread - start a new thread
-     */
-    public static function createThread($topicID, $newThread)
-    {
-        $thread = array(
-            'id' => array(
-                'N' => $newID
-            ),
-            'type' => array(
-                'S' => 'thread'
-            ),
-            'title' => array(
-                'S' => $threadTitle
-            ),
-            'text' => array(
-                'S' => $treadText
-            )
-        );
-        $thread['creationDate'] = array(
-            'N' => getUnixTime()
-        );
-        
-        $createThreadSuccess = null;
-        
-        if ($createThreadSuccess) {
-            // redirect to newly created thread
-            Flight::redirect('/' . $threadID, 201);
-        } else {
-            // could not create thread
-        }
-    }
-
-    /**
-     * readThread - show all comments within a topic
-     *
-     * @param int $thread
-     *            Thread ID
-     */
-    public static function readThread($threadID)
-    {
-        $threadExists = null;
-        
-        if ($threadExists) {
-            // read thread
-        } else {
-            // no such thread exists
-        }
-    }
-
-    /**
-     * updateThread
-     */
-    public static function updateThread($threadID, $newThread)
-    {
-        $threadExists = null;
-        
-        if ($threadExists) {
-            // update thread
-        } else {
-            // create thread
-        }
-    }
-
-    /**
-     * deleteThread - delete a thread
-     *
-     * @param int $thread
-     *            Thread ID of thread to be deleted
-     */
-    public static function deleteThread($threadID)
-    {
-        $threadExists = null;
-        
-        if ($threadExists) {
-            // create thread
-        } else {
-            // no such thread exists
-        }
-    }
+class DbHelper {
+	private static $dbapp_blogposts = 'dbapp-blogposts';
+	
+	/**
+	 * retrieve a database client handle
+	 *
+	 * @return \Aws\DynamoDb\DynamoDbClient
+	 */
+	private static function client() {
+		$factoryOptions = array (
+				'region' => 'ap-southeast-2' 
+		);
+		
+		// use profile configuration file if environment isn't set
+		// useful for local testing
+		if (! isset ( $_ENV ['AWS_ACCESS_KEY_ID'] )) {
+			$factoryOptions ['profile'] = 'dbapp-profile';
+		}
+		
+		return DynamoDbClient::factory ( $factoryOptions );
+	}
+	
+	/**
+	 * create a new blog post item in the database
+	 *
+	 * @param array $blogpost
+	 *        	the blog post to add
+	 * @return ID of the newly added blog post, or 0 on error
+	 */
+	public static function newBlogPost($blogpost, $time = 0) {
+		$client = DbHelper::client ();
+		
+		if ($time == 0) {
+			$time = time ();
+		}
+		
+		$id = rand ( 100000, 999999 ); // TODO - test for uniqueness
+		                               
+		// build item
+		$newItem = array (
+				'id' => array (
+						'N' => $id 
+				),
+				'time' => array (
+						'N' => $time 
+				),
+				'title' => array (
+						'S' => $blogpost ['title'] 
+				),
+				'content' => array (
+						'S' => $blogpost ['content'] 
+				) 
+		);
+		
+		echo "<pre>" . print_r ( $newItem ) . "</pre>";
+		
+		try {
+			$client->putItem ( array (
+					'TableName' => DbHelper::$dbapp_blogposts,
+					'Item' => $newItem 
+			) );
+			
+			return $id;
+		} catch ( Exception $e ) {
+			// TODO - return error
+		}
+		
+		return 0;
+	}
+	
+	/**
+	 * retrieve blog post object from database
+	 *
+	 * @param int $id
+	 *        	ID of blog post
+	 * @return the blog post, or false if non-existent
+	 */
+	public static function getBlogPost($id) {
+		$client = DbHelper::client ();
+		
+		try {
+			$response = $client->getItem ( array (
+					'TableName' => DbHelper::$dbapp_blogposts,
+					'Key' => array (
+							'id' => array (
+									'N' => $id 
+							) 
+					) 
+			) );
+			
+			$blogpost = array ();
+			
+			// map database values to object
+			$blogpost ['id'] = $response ['Item'] ['id'] ['N'];
+			$blogpost ['time'] = $response ['Item'] ['time'] ['N'];
+			$blogpost ['title'] = $response ['Item'] ['title'] ['S'];
+			$blogpost ['content'] = $response ['Item'] ['content'] ['S'];
+			
+			if (isset ( $response ['Item'] ['comments'] ['L'] )) {
+				$blogpost ['comments'] = array ();
+				foreach ( $response ['Item'] ['comments'] ['L'] as $comment ) {
+					array_push ( $blogpost ['comments'], array (
+							'content' => $comment ['M'] ['content'] ['S'],
+							'time' => $comment ['M'] ['time'] ['N'] 
+					) );
+				}
+			}
+			
+			return $blogpost;
+		} catch ( Exception $e ) {
+			return false;
+		}
+	}
+	
+	/**
+	 * getAllBlogPosts - get all blog posts
+	 *
+	 * @param int $page
+	 *        	- page to return
+	 * @return array of blogposts from db
+	 */
+	public static function getAllBlogPosts($page = 0) {
+		$client = DbHelper::client ();
+		
+		// set scan options for paging
+		$scanOptions = array (
+				'TableName' => DbHelper::$dbapp_blogposts,
+				'Limit' => 10,
+				'Count' => true 
+		);
+		
+		// scan through to the requested page
+		$scanLastKey = null;
+		for($i = 0; $i < $page; $i ++) {
+			if (isset ( $scanLastKey )) {
+				$scanOptions ['ExclusiveStartKey'] = $scanLastKey;
+			}
+			$scan = $client->scan ( $scanOptions );
+			if ($scan ['Count'] == 10) {
+				if (isset ( $scan ['LastEvaluatedKey'] )) {
+					$scanLastKey = $scan ['LastEvaluatedKey'];
+				}
+			} else {
+				break;
+			}
+		}
+		
+		// scan the right page
+		$scanOptions ['Count'] = false;
+		$scan = $client->getIterator ( 'Scan', $scanOptions );
+		
+		// build blog posts array
+		$blogposts = array ();
+		foreach ( $scan as $item ) {
+			array_push ( $blogposts, array (
+					'id' => $item ['id'] ['N'],
+					'time' => $item ['time'] ['N'],
+					'title' => $item ['title'] ['S'],
+					'content' => $item ['content'] ['S'] 
+			) );
+		}
+		
+		return $blogposts;
+	}
+	
+	/**
+	 * add a new comment to a blog post
+	 */
+	public static function newBlogPostComment($id) {
+	}
+	
+	/**
+	 * bring up database
+	 */
+	public static function migrationUp() {
+		$client = DbHelper::client ();
+		
+		$result = $client->createTable ( array (
+				'TableName' => DbHelper::$dbapp_blogposts,
+				'AttributeDefinitions' => array (
+						array (
+								'AttributeName' => 'id',
+								'AttributeType' => 'N' 
+						) 
+				),
+				'KeySchema' => array (
+						array (
+								'AttributeName' => 'id',
+								'KeyType' => 'HASH' 
+						) 
+				),
+				'ProvisionedThroughput' => array (
+						'ReadCapacityUnits' => 10,
+						'WriteCapacityUnits' => 20 
+				) 
+		) );
+		
+		$client->waitUntilTableExists ( array (
+				'TableName' => DbHelper::$dbapp_blogposts 
+		) );
+		
+		return true;
+	}
+	
+	/**
+	 * tear down database table
+	 */
+	public static function migrationDown() {
+		$client = DbHelper::client ();
+		
+		try {
+			$result = $client->deleteTable ( array (
+					'TableName' => DbHelper::$dbapp_blogposts 
+			) );
+		} catch ( Aws\DynamoDB\Exception\ResourceNotFoundException $e ) {
+			return 'No such table exists.';
+		} catch ( Exception $e ) {
+			return 'Unexpected error.';
+		}
+		
+		$client->waitUntilTableNotExists ( array (
+				'TableName' => DbHelper::$dbapp_blogposts 
+		) );
+		
+		return true;
+	}
+	
+	/**
+	 * delete all blog posts
+	 */
+	public static function deleteAllBlogPosts() {
+		$client = DbHelper::client ();
+		
+		// iterate over all database items and delete them
+		$scan = $client->getIterator ( 'Scan', array (
+				'TableName' => DbHelper::$dbapp_blogposts 
+		) );
+		foreach ( $scan as $item ) {
+			$client->deleteItem ( array (
+					'TableName' => DbHelper::$dbapp_blogposts,
+					'Key' => array (
+							'id' => array (
+									'N' => $item ['id'] ['N'] 
+							) 
+					) 
+			) );
+		}
+	}
 }
 
 /**
- * Comment - model for comments
+ * View - renders web pages from requests
  *
  * @author nick
  *        
  */
-class Comment
-{
-
-    /**
-     * createComment
-     */
-    public static function createComment($threadID, $newComment)
-    {
-        // create comment
-    }
-
-    /**
-     * readComment
-     */
-    public static function readComment($commentID)
-    {
-        $commentExists = null;
-        
-        if ($commentExists) {
-            // create thread
-        } else {
-            // no such comment exists
-        }
-    }
-
-    /**
-     * updateComment
-     */
-    public static function updateComment($commentID, $newComment)
-    {
-        $commentExists = null;
-        
-        if ($commentExists) {
-            // create thread
-        } else {
-            // create comment
-        }
-    }
-
-    /**
-     * deleteComment
-     */
-    public static function deleteComment($commentID)
-    {
-        $commentExists = null;
-        
-        if ($commentExists) {
-            // create thread
-        } else {
-            // no such comment exists
-        }
-    }
+class View {
+	
+	/**
+	 * show all topics
+	 */
+	public static function allBlogPosts($page = 0) {
+		$blogposts = DbHelper::getAllBlogPosts ( $page );
+		
+		// render
+		Flight::render ( 'allblogposts', array (
+				'blogposts' => $blogposts 
+		), 'body_content' );
+		
+		Flight::render ( 'layout' );
+	}
+	
+	/**
+	 * view blog post by id
+	 */
+	public static function blogPost($id) {
+		// get blog post by id
+		$blogpost = DbHelper::getBlogPost ( $id );
+		
+		// render page content
+		Flight::render ( 'blogpost', array (
+				'blogpost' => $blogpost 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => $blogpost ['title'] 
+		) );
+	}
+	
+	/**
+	 * show admin dashboard
+	 */
+	public static function adminIndex() {
+		Flight::render ( 'admin/index', array (), 'body_content' );
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Admin Dashboard' 
+		) );
+	}
+	
+	/**
+	 * new blog post entry form
+	 */
+	public static function newBlogPostForm() {
+		Flight::render ( 'admin/newblogpost', array (), 'body_content' );
+		Flight::render ( 'layout' );
+	}
 }
 
 /**
- * methods for setting up and tearing down the database
- *
- * @author nick
- *        
+ * register routes
  */
-class Migration
-{
+Flight::route ( '/admin', array (
+		'View',
+		'adminIndex' 
+) );
 
-    /**
-     * bring up database
-     */
-    public static function up()
-    {
-        echo "creating table...\n";
-        
-        $client = DbHelper::client();
-        
-        try {
-            $result = $client->createTable(array(
-                'TableName' => DbHelper::$appTableName,
-                'AttributeDefinitions' => array(
-                    array(
-                        'AttributeName' => 'id',
-                        'AttributeType' => 'S'
-                    ),
-                    array(
-                        'AttributeName' => 'created',
-                        'AttributeType' => 'N'
-                    )
-                ),
-                'KeySchema' => array(
-                    array(
-                        'AttributeName' => 'id',
-                        'KeyType' => 'HASH'
-                    ),
-                    array(
-                        'AttributeName' => 'created',
-                        'KeyType' => 'RANGE'
-                    )
-                ),
-                'ProvisionedThroughput' => array(
-                    'ReadCapacityUnits' => 10,
-                    'WriteCapacityUnits' => 20
-                )
-            ));
-            
-            $client->waitUntilTableExists(array(
-                'TableName' => DbHelper::$appTableName
-            ));
-        } catch (Exception $e) {
-            echo "Unexpected error.\n";
-            print_r($e);
-            return;
-        }
-        
-        echo 'Table created.';
-    }
+Flight::route ( 'GET /admin/newblogpost', array (
+		'View',
+		'newBlogPostForm' 
+) );
+Flight::route ( 'POST /admin/newblogpost', array (
+		'Controller',
+		'postNewBlogPost' 
+) );
 
-    /**
-     * tear down database table
-     */
-    public static function down()
-    {
-        echo "Deleting table...\n"; // double string
-        
-        $client = DbHelper::client();
-        
-        try {
-            $result = $client->deleteTable(array(
-                'TableName' => DbHelper::$appTableName
-            ));
-        } catch (Aws\DynamoDB\Exception\ResourceNotFoundException $e) {
-            echo 'No such table exists.\n';
-            return;
-        } catch (Exception $e) {
-            print_r($e);
-        }
-        
-        $client->waitUntilTableNotExists(array(
-            'TableName' => DbHelper::$appTableName
-        ));
-        
-        echo 'Table deleted.';
-    }
-}
+Flight::route ( '/admin/createtable', array (
+		'Controller',
+		'createTable' 
+) );
 
-class Admin
-{
+Flight::route ( '/admin/deletetable', array (
+		'Controller',
+		'deleteTable' 
+) );
 
-    public static function listTables()
-    {
-        $client = DbHelper::client();
-        
-        $tablesIter = $client->getIterator('ListTables');
-        
-        echo "<ul>";
-        foreach ($tablesIter as $tableName) {
-            printf("<li>%s</li>", $tableName);
-        }
-        echo "</ul>";
-    }
+Flight::route ( '/admin/fakedata', array (
+		'Controller',
+		'fakeBlogPosts' 
+) );
 
-    public static function hello()
-    {
-        echo 'Hello World!';
-    }
-    
-    public static function showTable()
-    {
-        $client = DbHelper::client();
+Flight::route ( '/admin/deleteall', array (
+		'Controller',
+		'deleteAllBlogPosts' 
+) );
 
-        $itemsIter = $client->getIterator ( 'Scan', array (
-            'TableName' => DbHelper::$appTableName
-        ) );
-        
-        echo "<ul>";
-        foreach ($itemsIter as $item)
-        {
-        	printf("<li>%s - %d</li>", $item['id'], $item['created']);
-        }
-        echo "</ul>";
-    }
-}
+Flight::route ( '/', array (
+		'View',
+		'allBlogPosts' 
+) );
 
-Flight::route('/admin/createtable', array(
-    'Migration',
-    'up'
-));
+Flight::route ( '/@page:[0-9]+', array (
+		'View',
+		'allBlogPosts' 
+) );
 
-Flight::route('/admin/deletetable', array(
-    'Migration',
-    'down'
-));
+Flight::route ( '/blog/@id:[0-9]+', array (
+		'View',
+		'blogPost' 
+) );
 
-Flight::route('/admin/listtables', array(
-    'Admin',
-    'listTables'
-));
-
-Flight::route('/admin/showtable', array(
-    'Admin',
-    'showTable'
-));
-
-Flight::route('/admin/hello', array(
-    'Admin',
-    'hello'
-));
-
-class View
-{
-
-    /**
-     * show all topics
-     */
-    public static function allTopics()
-    {
-        // get topics
-        $client = Flight::db()->client();
-        
-        $topics = $client->getIterator('Scan', array(
-            'TableName' => DbHelper::$appTableName
-        ));
-        
-        // render
-        Flight::render('header', array(
-            'heading' => 'All Topics'
-        ), 'header_content');
-        Flight::render('topics_body', array(
-            'topics' => $topics
-        ), 'body_content');
-        
-        Flight::render('layout', array(
-            'title' => 'dbapp'
-        ));
-    }
-}
-
-Flight::route('GET /', array(
-    'View',
-    'allTopics'
-));
-
-/**
- * create a new topic
- */
-Flight::route('POST /', function () {
-    $createTopicSuccess = null;
-    
-    if ($createTopicSuccess) {
-        // redirect to new topic
-    }
-});
-
-/**
- * get topic
- */
-Flight::route('GET /@topic', function () {
-    $topicExists = null;
-    
-    if ($topicExists) {
-        
-        Flight::render('topic_header', array(
-            'topic' => $topic
-        ), 'header_content');
-        Flight::render('threads_body', array(
-            'topic' => $topic
-        ), 'body_content');
-        
-        Flight::render('layout', array(
-            'title' => 'dbapp'
-        ));
-    }
-});
-
-/**
- * post new comment
- */
-Flight::route('POST /@topic', function () {
-    // post new comment
-});
-
-Flight::route('PUSH /@topic', function () {
-    // update topic
-});
-
-Flight::route('DELETE /@topic', function () {
-    // delete topic
-});
-
-/**
- * return view
- */
-function view($header, $body)
-{
-    // return render
-}
-
-/**
- * get thread
- */
-Flight::route('GET /@topic/@thread', function () {
-    $threadExists = null;
-    
-    if ($threadExists) {
-        // thread exists
-    } else {
-        Flight::render('header', array(
-            'header' => 'Error'
-        ), 'header_content');
-        Flight::render('body', array(
-            'topic' => 'No such thread exists'
-        ), 'body_content');
-        
-        Flight::render('layout', array(
-            'title' => 'dbapp - No such thread exists'
-        ));
-    }
-});
-
-Flight::route('POST /@topic/@thread', function () {
-    // post comment
-});
-
-Flight::route('PUT /@topic/@thread', function () {
-    // update thread
-});
-
-Flight::route('DELETE /@topic/@thread', function () {
-    // delete thread
-});
-
-Flight::route('PUT /@topic/@thread/@comment', function () {
-    // update comment
-});
-
-Flight::route('DELETE /@topic/@thread/@comment', function () {
-    // delete comment
-});
-
-Flight::register('db', 'DbHelper');
-
-Flight::start();
+Flight::start ();
 ?>
