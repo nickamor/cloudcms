@@ -1,2 +1,2 @@
-<p><a href="/admin">Back</a></p>
+<nav><a href="/admin">Admin</a></nav>
 <p><?php echo $content; ?></p>

@@ -26,6 +26,7 @@ class Controller {
 		// build blogpost from request body
 		$blogpost = array (
 				'title' => $request->data->title,
+				'author' => $request->data->author,
 				'content' => $request->data->content 
 		);
 		
@@ -33,7 +34,7 @@ class Controller {
 		$newBlogPostID = DbHelper::newBlogPost ( $blogpost );
 		if ($newBlogPostID > 0) {
 			// go to blog post
-			Flight::redirect ( '/blog/' . $newBlogPostID );
+			Flight::redirect ( '/admin/blog/' . $newBlogPostID );
 		} else {
 			// show error
 			$status = 'Could not create new blog post.';
@@ -103,8 +104,8 @@ class Controller {
 		$i = 0;
 		for(; $i < $num; $i ++) {
 			$blogpost = array (
-					'title' => $faker->text ( 25 ),
-					'content' => $faker->text ( 800 ) 
+					'title' => $faker->text ( 40 ),
+					'content' => $faker->text ( 1600 ) 
 			);
 			
 			// insert blogpost, break on error
@@ -169,16 +170,23 @@ class Controller {
 		
 		// build comment from request
 		$id = $request->data->id;
-		$comment = array (
+		$comment = [ 
 				'author' => $request->data->author,
 				'content' => $request->data->content 
-		);
+		];
 		
 		DbHelper::newBlogPostComment ( $id, $comment );
 		
 		Flight::redirect ( $request->referrer . '#bottom' );
 	}
 }
+
+/**
+ * wrapper for database functions
+ *
+ * @author nick
+ *        
+ */
 class DbHelper {
 	/**
 	 * name of the database table for blog posts
@@ -268,6 +276,7 @@ class DbHelper {
 	 */
 	public static function getAllBlogPosts($page = 0) {
 		$client = DbHelper::client ();
+		$marshaler = new Marshaler ();
 		
 		// set scan options for paging
 		$scanOptions = array (
@@ -297,7 +306,6 @@ class DbHelper {
 		$scan = $client->getIterator ( 'Scan', $scanOptions );
 		
 		// return blog posts array
-		$marshaler = new Marshaler ();
 		$blogposts = array ();
 		foreach ( $scan as $item ) {
 			array_push ( $blogposts, $marshaler->unmarshalItem ( $item ) );
@@ -311,39 +319,30 @@ class DbHelper {
 	 */
 	public static function newBlogPostComment($id, $comment) {
 		$client = DbHelper::client ();
+		$marshaler = new Marshaler ();
 		
-		// TODO - use marshaler
-		$comment_item = array (
-				'author' => array (
-						'S' => $comment ['author'] 
-				),
-				'content' => array (
-						'S' => $comment ['content'] 
-				),
-				'time' => array (
-						'N' => time () 
-				) 
-		);
+		// update time on comment
+		$comment ['time'] = time ();
 		
 		// update the blog post
-		$response = $client->updateItem ( array (
+		$response = $client->updateItem ( [ 
 				'TableName' => DbHelper::$dbapp_blogposts,
-				'Key' => array (
+				'Key' => [ 
 						'id' => [ 
 								'N' => $id 
 						] 
-				),
+				],
 				'UpdateExpression' => 'SET comments = list_append(if_not_exists(comments, :newcomment), :newcomment)',
-				'ExpressionAttributeValues' => array (
-						':newcomment' => array (
-								'L' => array (
-										'0' => array (
-												'M' => $comment_item 
-										) 
-								) 
-						) 
-				) 
-		) );
+				'ExpressionAttributeValues' => [ 
+						':newcomment' => [ 
+								'L' => [ 
+										'0' => [ 
+												'M' => $marshaler->marshalItem ( $comment ) 
+										] 
+								] 
+						] 
+				] 
+		] );
 	}
 	
 	/**
@@ -352,29 +351,29 @@ class DbHelper {
 	public static function migrationUp() {
 		$client = DbHelper::client ();
 		
-		$result = $client->createTable ( array (
+		$result = $client->createTable ( [ 
 				'TableName' => DbHelper::$dbapp_blogposts,
-				'AttributeDefinitions' => array (
-						array (
+				'AttributeDefinitions' => [ 
+						[ 
 								'AttributeName' => 'id',
 								'AttributeType' => 'N' 
-						) 
-				),
-				'KeySchema' => array (
-						array (
+						] 
+				],
+				'KeySchema' => [ 
+						[ 
 								'AttributeName' => 'id',
 								'KeyType' => 'HASH' 
-						) 
-				),
-				'ProvisionedThroughput' => array (
+						] 
+				],
+				'ProvisionedThroughput' => [ 
 						'ReadCapacityUnits' => 10,
 						'WriteCapacityUnits' => 20 
-				) 
-		) );
+				] 
+		] );
 		
-		$client->waitUntilTableExists ( array (
+		$client->waitUntilTableExists ( [ 
 				'TableName' => DbHelper::$dbapp_blogposts 
-		) );
+		] );
 		
 		return true;
 	}
@@ -386,9 +385,9 @@ class DbHelper {
 		$client = DbHelper::client ();
 		
 		try {
-			$result = $client->deleteTable ( array (
+			$result = $client->deleteTable ( [ 
 					'TableName' => DbHelper::$dbapp_blogposts 
-			) );
+			] );
 		} catch ( Aws\DynamoDB\Exception\ResourceNotFoundException $e ) {
 			return 'No such table exists.';
 		} catch ( Exception $e ) {
@@ -409,18 +408,18 @@ class DbHelper {
 		$client = DbHelper::client ();
 		
 		// iterate over all database items and delete them
-		$scan = $client->getIterator ( 'Scan', array (
+		$scan = $client->getIterator ( 'Scan', [ 
 				'TableName' => DbHelper::$dbapp_blogposts 
-		) );
+		] );
 		foreach ( $scan as $item ) {
-			$client->deleteItem ( array (
+			$client->deleteItem ( [ 
 					'TableName' => DbHelper::$dbapp_blogposts,
-					'Key' => array (
-							'id' => array (
+					'Key' => [ 
+							'id' => [ 
 									'N' => $item ['id'] ['N'] 
-							) 
-					) 
-			) );
+							] 
+					] 
+			] );
 		}
 	}
 }
@@ -440,9 +439,9 @@ class View {
 		$blogposts = DbHelper::getAllBlogPosts ( $page );
 		
 		// render
-		Flight::render ( 'allblogposts', array (
+		Flight::render ( 'blogs', [ 
 				'blogposts' => $blogposts 
-		), 'body_content' );
+		], 'body_content' );
 		
 		Flight::render ( 'layout' );
 	}
@@ -455,14 +454,14 @@ class View {
 		$blogpost = DbHelper::getBlogPost ( $id );
 		
 		// render page content
-		Flight::render ( 'blogpost', array (
+		Flight::render ( 'blog', [ 
 				'blogpost' => $blogpost 
-		), 'body_content' );
+		], 'body_content' );
 		
 		// render page layout
-		Flight::render ( 'layout', array (
+		Flight::render ( 'layout', [ 
 				'pagetitle' => $blogpost ['title'] 
-		) );
+		] );
 	}
 	
 	/**
@@ -470,10 +469,10 @@ class View {
 	 */
 	public static function adminIndex() {
 		// show admin dashboard
-		Flight::render ( 'admin/index', array (), 'body_content' );
-		Flight::render ( 'layout', array (
+		Flight::render ( 'admin/index', [ ], 'body_content' );
+		Flight::render ( 'layout', [ 
 				'pagetitle' => 'Admin Dashboard' 
-		) );
+		] );
 	}
 	
 	/**
@@ -481,74 +480,70 @@ class View {
 	 */
 	public static function newBlogPostForm() {
 		// show new blog post form
-		Flight::render ( 'admin/newblogpost', array (), 'body_content' );
-		Flight::render ( 'layout', array (
+		Flight::render ( 'admin/blog', [ ], 'body_content' );
+		Flight::render ( 'layout', [ 
 				'pagetitle' => 'New Blog Post' 
-		) );
+		] );
 	}
 }
 
 /**
  * register routes
  */
-Flight::route ( '/admin', array (
+Flight::route ( '/admin', [ 
 		'View',
 		'adminIndex' 
-) );
+] );
 
-Flight::route ( 'GET /admin/newblogpost', array (
-		'View',
-		'newBlogPostForm' 
-) );
-Flight::route ( 'POST /admin/newblogpost', array (
-		'Controller',
-		'postNewBlogPost' 
-) );
-
-Flight::route ( '/admin/createtable', array (
+Flight::route ( '/admin/install', [ 
 		'Controller',
 		'createTable' 
-) );
+] );
 
-Flight::route ( '/admin/deletetable', array (
+Flight::route ( '/admin/uninstall', [ 
 		'Controller',
 		'deleteTable' 
-) );
+] );
 
-Flight::route ( '/admin/fakedata(/@num:[0-9]+)', array (
+Flight::route ( 'GET /admin/blog/new', [ 
+		'View',
+		'newBlogPostForm' 
+] );
+
+Flight::route ( 'POST /admin/blog/new', [ 
+		'Controller',
+		'postNewBlogPost' 
+] );
+
+Flight::route ( '/admin/blog/new/fake(/@num:[0-9]+)', [ 
 		'Controller',
 		'fakeBlogPosts' 
-) );
+] );
 
-Flight::route ( '/admin/deleteall', array (
+Flight::route ( '/admin/blog/deleteall', [ 
 		'Controller',
 		'deleteAllBlogPosts' 
-) );
+] );
 
-Flight::route ( '/', array (
+Flight::route ( '/(@page:[0-9]+)', [ 
 		'View',
 		'allBlogPosts' 
-) );
+] );
 
-Flight::route ( '/@page:[0-9]+', array (
-		'View',
-		'allBlogPosts' 
-) );
-
-Flight::route ( 'GET /blog/@id:[0-9]+', array (
+Flight::route ( 'GET /blog/@id:[0-9]+', [ 
 		'View',
 		'blogPost' 
-) );
+] );
 
-Flight::route ( 'POST /blog/@id:[0-9]+', array (
+Flight::route ( 'POST /blog/@id:[0-9]+', [ 
 		'Controller',
 		'postNewComment' 
-) );
+] );
 
-Flight::route ( '/blog/@id:[0-9]+/fakecomments(/@num:[0-9]+)', array (
+Flight::route ( '/admin/blog/@id:[0-9]+/fakecomments(/@num:[0-9]+)', [ 
 		'Controller',
 		'fakeComments' 
-) );
+] );
 
 Flight::start ();
 ?>

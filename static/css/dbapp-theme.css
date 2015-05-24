@@ -1,0 +1,20 @@
+/** dbapp custom theme css **/
+.navbar .nav li {
+	display: table-cell;
+	width: 1%;
+	float: none;
+}
+
+.blog-post-meta {
+	color: #999;
+	font-style: italic;
+}
+
+.comment-meta {
+	color: #999;
+	font-size: small;
+}
+
+footer {
+	text-align: center;
+}
