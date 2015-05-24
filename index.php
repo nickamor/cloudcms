@@ -17,14 +17,26 @@ class Controller {
 		
 		// build blogpost from request body
 		$blogpost = array (
-				'title' => $request ['POST'] ['title'] 
+				'title' => $request->data->title,
+				'content' => $request->data->content 
 		);
 		
+		// create blog post
 		$newBlogPostID = DbHelper::newBlogPost ( $blogpost );
 		if ($newBlogPostID > 0) {
-			Flight::redirect ( "/blog/$newBlogPostID", 201 );
+			// go to blog post
+			Flight::redirect ( '/blog/' . $newBlogPostID );
 		} else {
-			// TODO - show error
+			// show error
+			$status = 'Could not create new blog post.';
+			
+			Flight::render ( 'admin/message', array (
+					'content' => $status 
+			), 'body_content' );
+			
+			Flight::render ( 'layout', array (
+					'pagetitle' => 'New Blog Post' 
+			) );
 		}
 	}
 	
@@ -73,18 +85,22 @@ class Controller {
 	/**
 	 * post some randomised blog posts
 	 */
-	public static function fakeBlogPosts() {
+	public static function fakeBlogPosts($num) {
+		if (is_null ( $num )) {
+			$num = 25;
+		}
+		
 		$faker = Faker\Factory::create ( 'en_AU' );
 		
 		$i = 0;
-		for(; $i < 25; $i ++) {
+		for(; $i < $num; $i ++) {
 			$blogpost = array (
-					'title' => $faker->sentence,
-					'content' => $faker->paragraphs ( 3 ) 
+					'title' => $faker->text(25),
+					'content' => $faker->text(800) 
 			);
 			
 			// insert blogpost, break on error
-			if (DbHelper::newBlogPost ( $blogpost, $faker->unixTime ) <= 0) {
+			if (DbHelper::newBlogPost ( $blogpost ) <= 0) {
 				break;
 			}
 		}
@@ -171,8 +187,6 @@ class DbHelper {
 				) 
 		);
 		
-		echo "<pre>" . print_r ( $newItem ) . "</pre>";
-		
 		try {
 			$client->putItem ( array (
 					'TableName' => DbHelper::$dbapp_blogposts,
@@ -181,7 +195,7 @@ class DbHelper {
 			
 			return $id;
 		} catch ( Exception $e ) {
-			// TODO - return error
+			return - 1;
 		}
 		
 		return 0;
@@ -411,6 +425,7 @@ class View {
 	 * show admin dashboard
 	 */
 	public static function adminIndex() {
+		// show admin dashboard
 		Flight::render ( 'admin/index', array (), 'body_content' );
 		Flight::render ( 'layout', array (
 				'pagetitle' => 'Admin Dashboard' 
@@ -421,8 +436,11 @@ class View {
 	 * new blog post entry form
 	 */
 	public static function newBlogPostForm() {
+		// show new blog post form
 		Flight::render ( 'admin/newblogpost', array (), 'body_content' );
-		Flight::render ( 'layout' );
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'New Blog Post' 
+		) );
 	}
 }
 
@@ -453,7 +471,7 @@ Flight::route ( '/admin/deletetable', array (
 		'deleteTable' 
 ) );
 
-Flight::route ( '/admin/fakedata', array (
+Flight::route ( '/admin/fakedata(/@num:[0-9]+)', array (
 		'Controller',
 		'fakeBlogPosts' 
 ) );
