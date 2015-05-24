@@ -17,7 +17,7 @@ $postDateFormat = 'l j, Y';
 	<p class="comment-meta">
 		<?php if (isset($comment['author'])) echo $comment['author']; else echo 'Anonymous';?> wrote on <?php echo date($postDateFormat, $comment['time']); ?>
  	</p>
- 	
+
 	<p><?php echo $comment['content']; ?></p>
 	<hr>
 		<?php endforeach;?>
@@ -27,15 +27,27 @@ $postDateFormat = 'l j, Y';
 	<hr>
 	<?php endif;?>
 	
-	<form id="new-comment" action="" method="POST">
+	<form id="new-comment" action="" method="POST" class="form-horizontal">
 		<input name="id" hidden="true" type="text"
 			value="<?php echo $blogpost['id']; ?>">
-		<div>
-			<input name="author" type="text" placeholder="Name">
+		<div class="form-group">
+			<label for="author" class="col-sm-2 control-label">Name</label>
+			<div class="col-sm-3">
+				<input id="author" name="author" type="text" placeholder="Name"
+					class="form-control">
+			</div>
 		</div>
-		<div>
-			<textarea name="content" placeholder="Comment" required="required"></textarea>
+		<div class="form-group">
+			<label for="comment" class="col-sm-2 control-label">Comment</label>
+			<div class="col-sm-6">
+				<textarea id="content" name="content" placeholder="Comment"
+					required="required" class="form-control"></textarea>
+			</div>
 		</div>
-		<input type="submit" value="New Comment">
+		<div class="form-group">
+			<div class="col-sm-offset-2 col-sm-6">
+				<input type="submit" value="New Comment" class="btn btn-default">
+			</div>
+		</div>
 	</form>
 </div>

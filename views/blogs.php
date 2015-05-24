@@ -4,6 +4,11 @@ $summaryLength = 400;
 $summaryDateFormat = 'l j, Y';
 ?>
 
+<div class="blog-header">
+	<h1 class="blog-title">Blog Title</h1>
+	<p class="lead blog-description">Blog subtitle and description</p>
+</div>
+
 <?php if (count($blogposts)):?>
 <?php foreach ($blogposts as $blogpost): ?>
 <div class="blog-post">

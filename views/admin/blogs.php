@@ -1,7 +1,7 @@
 <nav><a href="/admin">admin</a> > blogs
 </nav>
 
-<table>
+<table class="table table-striped">
 	<tr>
 		<th>id</th>
 		<th>title</th>

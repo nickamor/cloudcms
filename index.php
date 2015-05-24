@@ -95,22 +95,26 @@ class Controller {
 	 * post some randomised blog posts
 	 */
 	public static function fakeBlogPosts($num) {
-		if (is_null ( $num )) {
-			$num = 25;
-		}
-		
 		$faker = Faker\Factory::create ( 'en_AU' );
+		
+		if (is_null ( $num )) {
+			$num = 5;
+		}
 		
 		$i = 0;
 		for(; $i < $num; $i ++) {
 			$blogpost = array (
-					'title' => $faker->text ( 40 ),
-					'content' => $faker->text ( 1600 ) 
+					'title' => $faker->sentence,
+					'content' => implode ( "\n\n", $faker->paragraphs ( $faker->numberBetween ( 1, 9 ) ) ) 
 			);
 			
 			// insert blogpost, break on error
-			if (DbHelper::newBlogPost ( $blogpost ) <= 0) {
+			$id = DbHelper::newBlogPost ( $blogpost );
+			if ($id <= 0) {
 				break;
+			} else {
+				// add some fake comments
+				Controller::fakeComments ( $id, $faker->numberBetween ( 0, 15 ) );
 			}
 		}
 		
@@ -131,18 +135,27 @@ class Controller {
 	 * post some randomised comments
 	 */
 	public static function fakeComments($id, $num) {
+		$faker = Faker\Factory::create ( 'en_AU' );
+		
+		// $num is an optional parameter
 		if (is_null ( $num )) {
-			$num = 25;
+			$num = 5;
 		}
 		
 		for($i = 0; $i < $num; $i ++) {
-			DbHelper::newBlogPostComment ( $id, [ 
-					'author' => 'Anon',
-					'content' => 'Hello World' 
-			] );
+			$comment = [ 
+					'content' => $faker->paragraph 
+			];
+			
+			// chance of author name
+			if ($faker->numberBetween ( 0, 2 )) {
+				$comment ['author'] = $faker->firstName;
+			}
+			
+			DbHelper::newBlogPostComment ( $id, $comment );
 		}
 		
-		echo "Added $i comments.";
+		return "Added $i comments.";
 	}
 	
 	// delete all blog posts and show outcome
@@ -171,9 +184,13 @@ class Controller {
 		// build comment from request
 		$id = $request->data->id;
 		$comment = [ 
-				'author' => $request->data->author,
 				'content' => $request->data->content 
 		];
+		
+		// add optional parameters
+		if (isset ( $request->data->author )) {
+			$comment ['author'] = $request->data->author;
+		}
 		
 		DbHelper::newBlogPostComment ( $id, $comment );
 		
@@ -485,6 +502,18 @@ class View {
 				'pagetitle' => 'New Blog Post' 
 		] );
 	}
+	
+	/**
+	 * show file not found error message
+	 */
+	public static function fileNotFound() {
+		Flight::render ( 'error', [ 
+				'message' => 'No document found at that URI.' 
+		], 'body_content' );
+		Flight::render ( 'layout', [ 
+				'pagetitle' => 'File Not Found' 
+		] );
+	}
 }
 
 /**
@@ -543,6 +572,12 @@ Flight::route ( 'POST /blog/@id:[0-9]+', [
 Flight::route ( '/admin/blog/@id:[0-9]+/fakecomments(/@num:[0-9]+)', [ 
 		'Controller',
 		'fakeComments' 
+] );
+
+// override default 404 message
+Flight::map ( 'notFound', [ 
+		'View',
+		'fileNotFound' 
 ] );
 
 Flight::start ();
