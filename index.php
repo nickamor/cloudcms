@@ -6,8 +6,9 @@ require 'vendor/faker/autoload.php';
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
 use Aws\DynamoDb\Exception;
+use Aws\DynamoDb\Aws\DynamoDb;
 
-date_default_timezone_set ( 'Etc/Universal' );
+date_default_timezone_set ( 'Australia/Melbourne' );
 
 /**
  * handles request input
@@ -181,6 +182,8 @@ class Controller {
 	public static function postNewComment() {
 		$request = Flight::request ();
 		
+		// TODO - cannot post a comment with no author
+		
 		// build comment from request
 		$id = $request->data->id;
 		$comment = [ 
@@ -285,7 +288,7 @@ class DbHelper {
 	}
 	
 	/**
-	 * getAllBlogPosts - get all blog posts
+	 * getAllBlogPosts - get a page of blog posts
 	 *
 	 * @param int $page
 	 *        	- page to return
@@ -334,14 +337,17 @@ class DbHelper {
 	/**
 	 * add a new comment to a blog post
 	 */
-	public static function newBlogPostComment($id, $comment) {
+	public static function newBlogPostComment($id, $comment, $time = 0) {
 		$client = DbHelper::client ();
 		$marshaler = new Marshaler ();
 		
-		// update time on comment
-		$comment ['time'] = time ();
+		// set comment time
+		if ($time == 0) {
+			$time = time ();
+		}
+		$comment ['time'] = $time;
 		
-		// update the blog post
+		// update the blog post with the new comment
 		$response = $client->updateItem ( [ 
 				'TableName' => DbHelper::$dbapp_blogposts,
 				'Key' => [ 
@@ -442,7 +448,7 @@ class DbHelper {
 }
 
 /**
- * View - renders web pages from requests
+ * View - produce web pages
  *
  * @author nick
  *        
@@ -504,6 +510,26 @@ class View {
 	}
 	
 	/**
+	 * new blog post entry form
+	 */
+	public static function editBlogPostForm($id) {
+		$blogpost = DbHelper::getBlogPost ( $id );
+		
+		if ($blogpost) {
+			// show edit blog post form
+			Flight::render ( 'admin/blog', [ 
+					'blogpost' => $blogpost 
+			], 'body_content' );
+			Flight::render ( 'layout', [ 
+					'pagetitle' => 'New Blog Post' 
+			] );
+		} else {
+			// show error
+			Flight::notFound ();
+		}
+	}
+	
+	/**
 	 * show file not found error message
 	 */
 	public static function fileNotFound() {
@@ -544,6 +570,16 @@ Flight::route ( 'POST /admin/blog/new', [
 		'postNewBlogPost' 
 ] );
 
+Flight::route ( 'GET /admin/blog/@id', [ 
+		'View',
+		'editBlogPostForm' 
+] );
+
+Flight::route ( 'POST /admin/blog/@id', [ 
+		'Controller',
+		'updateNewBlogPost' 
+] );
+
 Flight::route ( '/admin/blog/new/fake(/@num:[0-9]+)', [ 
 		'Controller',
 		'fakeBlogPosts' 
@@ -573,6 +609,47 @@ Flight::route ( '/admin/blog/@id:[0-9]+/fakecomments(/@num:[0-9]+)', [
 		'Controller',
 		'fakeComments' 
 ] );
+
+Flight::route ( '/debug', function () {
+	$client = DynamoDbClient::factory ( [ 
+			'region' => 'ap-southeast-2',
+			'profile' => 'dbapp-profile' 
+	] );
+	$marshaler = new Marshaler ();
+	
+	$responses = [ ];
+	$key = null;
+	$done = false;
+	$scanOptions = [ 
+			'TableName' => 'dbapp-blogposts',
+			'Count' => true,
+			'Limit' => 10 
+	];
+	
+	while ( ! $done ) {
+		if (isset ( $key )) {
+			$scanOptions ['ExclusiveStartKey'] = $key;
+		}
+		
+		$response = $client->scan ( $scanOptions );
+		
+		if (isset ( $response ['LastEvaluatedKey'] )) {
+			$key = $response ['LastEvaluatedKey'];
+		}
+		
+		array_push ( $responses, $response );
+		
+		if ($response ['Count'] < 10) {
+			$done = true;
+		}
+	}
+	
+	// render view
+	Flight::render ( 'admin/message', [ 
+			'content' => '<pre>' . implode("", $responses) . '</pre>' 
+	], 'body_content' );
+	Flight::render ( 'layout' );
+} );
 
 // override default 404 message
 Flight::map ( 'notFound', [ 
