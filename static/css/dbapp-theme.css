@@ -17,3 +17,11 @@ body {
 footer {
 	text-align: center;
 }
+
+.blog-header {
+	text-align: center;
+}
+
+.navbar-form {
+	padding-right: 0px;
+}

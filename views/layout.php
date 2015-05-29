@@ -13,15 +13,20 @@
 					<a class="navbar-brand" href="/">cloud-dbapp</a>
 				</div>
 				<form action="/search" method="get" class="navbar-form navbar-right">
-					<input class="form-control" type="search" placeholder="Search...">
+					<div class="col-lg-9">
+						<div class="input-group">
+							<input type="search" placeholder="Search..." id="search" name="q"
+								class="form-control"> <span class="input-group-btn">
+								<button class="btn btn-default" type="button">
+									<span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+								</button>
+							</span>
+						</div>
+					</div>
 				</form>
+
 			</div>
 		</nav>
-		<div class="masthead">
-		<?php if (isset($pagetitle)):?>
-			<h2><?php echo $pagetitle; ?></h2>
-		<?php endif;?>
-		</div>
         <?php echo $body_content; ?>
     </div>
 
