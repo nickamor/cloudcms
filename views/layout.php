@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title><?php if (isset($pagetitle)) echo " $pagetitle - "; ?>cloud-dbapp</title>
+<title><?php if (isset($pagetitle)) echo "$pagetitle - "; ?>cloud-dbapp</title>
 <link rel="stylesheet" href="/static/css/bootstrap.min.css">
 <link rel="stylesheet" href="/static/css/dbapp-theme.css">
 </head>
 <body>
 	<div class="container">
+		<!-- navigation bar -->
 		<nav class="navbar navbar-default">
 			<div class="container-fluid">
 				<div class="navbar-header">
@@ -27,6 +28,8 @@
 
 			</div>
 		</nav>
+		
+		<!-- page content, rendered via other templates -->
         <?php echo $body_content; ?>
     </div>
 

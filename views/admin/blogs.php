@@ -17,7 +17,7 @@
 		<th></th>
 		<th></th>
 	</tr>
-<?php foreach ($blogs as $blog): ?>
+<?php if (isset($blogs)) foreach ($blogs as $blog): ?>
 	<tr>
 		<td><a href="/blogs/<?php echo $blog['id']; ?>"><?php echo $blog['id']; ?></a></td>
 		<td><?php if (isset($blog['title'])) echo $blog['title']; ?></td>

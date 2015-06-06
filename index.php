@@ -6,6 +6,7 @@ require 'vendor/faker/autoload.php';
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
 use Aws\DynamoDb\Exception;
+use Aws\DynamoDb\Exception\ResourceNotFoundException;
 use Aws\DynamoDb\Aws\DynamoDb;
 
 date_default_timezone_set ( 'Australia/Melbourne' );
@@ -44,7 +45,7 @@ class Model {
 	/**
 	 * create a new blog post item in the database
 	 *
-	 * @param array $blogpost
+	 * @param $blogpost array
 	 *        	the blog post to add
 	 * @return ID of the newly added blog post, or 0 on error
 	 */
@@ -83,6 +84,35 @@ class Model {
 	}
 	
 	/**
+	 * retrieve blog post object from database
+	 *
+	 * @param int $id
+	 *        	ID of blog post
+	 * @return the blog post, or false if non-existent
+	 */
+	public static function getBlogPost($id) {
+		$client = Model::client ();
+		$marshaler = new Marshaler ();
+		
+		try {
+			$request = [ 
+					'TableName' => Model::$dbapp_blogposts,
+					'Key' => [ 
+							'id' => [ 
+									'N' => $id 
+							] 
+					] 
+			];
+			
+			$response = $client->getItem ( $request );
+			
+			return $marshaler->unmarshalItem ( $response ['Item'] );
+		} catch ( Exception $e ) {
+			return null;
+		}
+	}
+	
+	/**
 	 * update a given blog post
 	 */
 	public static function updateBlogPost($blogpost) {
@@ -118,32 +148,23 @@ class Model {
 	}
 	
 	/**
-	 * retrieve blog post object from database
-	 *
-	 * @param int $id
-	 *        	ID of blog post
-	 * @return the blog post, or false if non-existent
+	 * delete a given blog post
 	 */
-	public static function getBlogPost($id) {
+	public static function deleteBlog($id) {
 		$client = Model::client ();
-		$marshaler = new Marshaler ();
 		
-		try {
-			$request = [ 
-					'TableName' => Model::$dbapp_blogposts,
-					'Key' => [ 
-							'id' => [ 
-									'N' => $id 
-							] 
-					] 
-			];
-			
-			$response = $client->getItem ( $request );
-			
-			return $marshaler->unmarshalItem ( $response ['Item'] );
-		} catch ( Exception $e ) {
-			return null;
-		}
+		$request = [ 
+				'TableName' => Model::$dbapp_blogposts,
+				'Key' => [ 
+						'id' => [ 
+								'N' => $id 
+						] 
+				] 
+		];
+		
+		$response = $client->deleteItem ( $request );
+		
+		return true;
 	}
 	
 	/**
@@ -167,8 +188,11 @@ class Model {
 				$request ['ExclusiveStartKey'] = $response ['LastEvaluatedKey'];
 			}
 			
-			$response = $client->scan ( $request );
-			
+			try {
+				$response = $client->scan ( $request );
+			} catch ( ResourceNotFoundException $e ) {
+				return null;
+			}
 			foreach ( $response ['Items'] as $blog ) {
 				array_push ( $blogs, $marshaler->unmarshalItem ( $blog ) );
 			}
@@ -181,12 +205,11 @@ class Model {
 	 * getAllBlogsPaginated - get a page of blog posts
 	 *
 	 * @param int $page
-	 *        	- page to return
+	 *        	page to return
 	 * @return array of blogposts from db
 	 */
 	public static function getBlogsPage($page = 0) {
 		$client = Model::client ();
-		$marshaler = new Marshaler ();
 		
 		// scan through to the requested page
 		do {
@@ -205,8 +228,14 @@ class Model {
 				$currentPage = 0;
 			}
 			
-			$response = $client->scan ( $request );
+			try {
+				$response = $client->scan ( $request );
+			} catch ( ResourceNotFoundException $e ) {
+				return null;
+			}
 		} while ( isset ( $response ['LastEvaluatedKey'] ) && $currentPage < $page );
+		
+		$marshaler = new Marshaler ();
 		
 		// get blog posts from response
 		$blogs = [ ];
@@ -217,7 +246,7 @@ class Model {
 		// get pagination button values
 		$pages = [ ];
 		if (isset ( $response ) && $page > 0) {
-			$pages ['previous'] = $currentPage - 1;
+			$pages ['previous'] = $page - 1;
 		}
 		
 		if (isset ( $response ) && isset ( $response ['LastEvaluatedKey'] )) {
@@ -225,7 +254,7 @@ class Model {
 			$request ['ExclusiveStartKey'] = $response ['LastEvaluatedKey'];
 			$response = $client->scan ( $request );
 			if (isset ( $response ['Count'] ) && $response ['Count'] > 0) {
-				$pages ['next'] = $currentPage + 1;
+				$pages ['next'] = $page + 1;
 			}
 		}
 		
@@ -236,7 +265,82 @@ class Model {
 	}
 	
 	/**
+	 * find blogs with given text
+	 *
+	 * @param string $query
+	 *        	text to search for
+	 * @return an array of the blogs that match the search conditions
+	 */
+	public static function getBlogsContaining($query) {
+		$client = Model::client ();
+		$marshaler = new Marshaler ();
+		$blogs = [ ];
+		
+		// The Scan API is paginated. Issue the Scan request multiple times.
+		do {
+			$request = [ 
+					'TableName' => Model::$dbapp_blogposts,
+					'ExpressionAttributeValues' => [ 
+							':query' => [ 
+									'S' => $query 
+							] 
+					],
+					'FilterExpression' => 'contains (content, :query)',
+					'Limit' => 10 
+			];
+			
+			// Add the ExclusiveStartKey if we got one back in the previous response
+			if (isset ( $response ) && isset ( $response ['LastEvaluatedKey'] )) {
+				$request ['ExclusiveStartKey'] = $response ['LastEvaluatedKey'];
+			}
+			
+			try {
+				$response = $client->scan ( $request );
+			} catch ( ResourceNotFoundException $e ) {
+				return null;
+			}
+			
+			foreach ( $response ['Items'] as $blog ) {
+				array_push ( $blogs, $marshaler->unmarshalItem ( $blog ) );
+			}
+		} while ( isset ( $response ['LastEvaluatedKey'] ) ); // loop while there are more results
+		
+		return $blogs;
+	}
+	
+	/**
+	 * delete all blog posts
+	 */
+	public static function deleteAllBlogPosts() {
+		$client = Model::client ();
+		
+		// iterate over all database items and delete them
+		$scan = $client->getIterator ( 'Scan', [ 
+				'TableName' => Model::$dbapp_blogposts 
+		] );
+		
+		foreach ( $scan as $item ) {
+			// TODO - marshal
+			$client->deleteItem ( [ 
+					'TableName' => Model::$dbapp_blogposts,
+					'Key' => [ 
+							'id' => [ 
+									'N' => $item ['id'] ['N'] 
+							] 
+					] 
+			] );
+		}
+	}
+	
+	/**
 	 * add a new comment to a blog post
+	 *
+	 * @param int $id
+	 *        	ID of blog post to add comment to
+	 * @param array $comment
+	 *        	comment to add
+	 * @param int $time
+	 *        	timestamp of comment, the default is the current time
 	 */
 	public static function newBlogComment($id, $comment, $time = 0) {
 		$client = Model::client ();
@@ -292,9 +396,15 @@ class Model {
 								'KeyType' => 'HASH' 
 						] 
 				],
+				/* This is the read/write allowance requested for the table.
+				 * These values are appropriate for light usage of the app,
+				 * and should be adjusted to meet actual usage.
+				 * Currently, this must be done manually via the AWS DynamoDB
+				 * control panel.
+				 */
 				'ProvisionedThroughput' => [ 
 						'ReadCapacityUnits' => 10,
-						'WriteCapacityUnits' => 20 
+						'WriteCapacityUnits' => 5 
 				] 
 		] );
 		
@@ -306,7 +416,7 @@ class Model {
 	}
 	
 	/**
-	 * tear down database table
+	 * bring down database table
 	 */
 	public static function migrationDown() {
 		$client = Model::client ();
@@ -329,46 +439,20 @@ class Model {
 	}
 	
 	/**
-	 * delete a given blog post
+	 * simple check to see if the database table is ready to be operated on
+	 *
+	 * @return whether the table does indeed exist
 	 */
-	public static function deleteBlog($id) {
+	public static function tableExists() {
 		$client = Model::client ();
 		
-		$request = [ 
-				'TableName' => Model::$dbapp_blogposts,
-				'Key' => [ 
-						'id' => [ 
-								'N' => $id 
-						] 
-				] 
-		];
-		
-		$response = $client->deleteItem ( $request );
-		
-		return true;
-	}
-	
-	/**
-	 * delete all blog posts
-	 */
-	public static function deleteAllBlogPosts() {
-		$client = Model::client ();
-		
-		// iterate over all database items and delete them
-		$scan = $client->getIterator ( 'Scan', [ 
-				'TableName' => Model::$dbapp_blogposts 
-		] );
-		
-		foreach ( $scan as $item ) {
-			// TODO - marshal
-			$client->deleteItem ( [ 
-					'TableName' => Model::$dbapp_blogposts,
-					'Key' => [ 
-							'id' => [ 
-									'N' => $item ['id'] ['N'] 
-							] 
-					] 
+		try {
+			$client->describeTable ( [ 
+					'TableName' => Model::$dbapp_blogposts 
 			] );
+			return true;
+		} catch ( ResourceNotFoundException $e ) {
+			return false;
 		}
 	}
 }
@@ -382,10 +466,24 @@ class Model {
 class View {
 	
 	/**
+	 * show admin dashboard
+	 */
+	public static function renderAdminIndex($tableExists) {
+		// show admin dashboard
+		Flight::render ( 'admin/index', [ 
+				'tableExists' => $tableExists 
+		], 'body_content' );
+		Flight::render ( 'layout', [ 
+				'pagetitle' => 'Admin Dashboard' 
+		] );
+	}
+	
+	/**
 	 * the admin blog list interface
 	 *
-	 * @param        	
-	 *
+	 * @param array $blogs
+	 *        	collection of blogs to display
+	 *        	
 	 */
 	public static function renderAdminBlogs($blogs) {
 		Flight::render ( 'admin/blogs', [ 
@@ -402,7 +500,7 @@ class View {
 	 * @param $result array
 	 *        	optional status message of previous action
 	 */
-	public static function renderAdminEditBlog($blog = null, $result = null) {
+	public static function renderAdminBlog($blog = null, $result = null) {
 		Flight::render ( 'admin/blog', [ 
 				'blog' => $blog 
 		], 'body_content' );
@@ -410,7 +508,26 @@ class View {
 	}
 	
 	/**
+	 * show an error page
+	 *
+	 * @param string $status
+	 *        	message to display
+	 */
+	public static function renderAdminError($status) {
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'New Blog Post' 
+		) );
+	}
+	
+	/**
 	 * the blog index
+	 *
+	 * @param array $blogs
+	 *        	collection of blogs to display
 	 */
 	public static function renderBlogs($blogs, $pages) {
 		Flight::render ( 'blogs', [ 
@@ -422,22 +539,10 @@ class View {
 	}
 	
 	/**
-	 *
-	 * @param unknown $status        	
-	 */
-	public static function renderAdminError($status) {
-		// show error
-		Flight::render ( 'admin/message', array (
-				'content' => $status 
-		), 'body_content' );
-		
-		Flight::render ( 'layout', array (
-				'pagetitle' => 'New Blog Post' 
-		) );
-	}
-	
-	/**
 	 * view blog post by id
+	 *
+	 * @param array $blog
+	 *        	blog post to display
 	 */
 	public static function renderBlog($blog) {
 		// render page content
@@ -446,24 +551,30 @@ class View {
 		], 'body_content' );
 		
 		// render page layout
-		Flight::render ( 'layout' );
+		Flight::render ( 'layout', [ 
+				'pagetitle' => $blog ['title'] 
+		] );
 	}
 	
 	/**
-	 * show admin dashboard
+	 * view search results
+	 *
+	 * @param string $query
+	 *        	search query to display
+	 * @param array $blogs        	
 	 */
-	public static function adminIndex() {
-		// show admin dashboard
-		Flight::render ( 'admin/index', [ ], 'body_content' );
-		Flight::render ( 'layout', [ 
-				'pagetitle' => 'Admin Dashboard' 
-		] );
+	public static function renderSearch($query, $blogs) {
+		Flight::render ( 'search.php', [ 
+				'query' => $query,
+				'blogs' => $blogs 
+		], 'body_content' );
+		Flight::render ( 'layout' );
 	}
 	
 	/**
 	 * show file not found error message
 	 */
-	public static function fileNotFound() {
+	public static function renderFileNotFound() {
 		Flight::render ( 'error', [ 
 				'message' => 'No document found at that URI.' 
 		], 'body_content' );
@@ -480,6 +591,51 @@ class View {
  *        
  */
 class Controller {
+	public static function adminIndex() {
+		View::renderAdminIndex ( Model::tableExists () );
+	}
+	
+	/**
+	 * create blog table and show outcome
+	 */
+	public static function adminCreateTable() {
+		if (Model::migrationUp ()) {
+			$status = 'Table created.';
+		} else {
+			$status = 'Unexpected error.';
+		}
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Create Table' 
+		) );
+	}
+	
+	/**
+	 * delete blog table and show outcome
+	 */
+	public static function adminDeleteTable() {
+		if (Model::migrationDown ()) {
+			$status = 'Table deleted.';
+		} else {
+			$status = 'Unexpected error.';
+		}
+		
+		// render page content
+		Flight::render ( 'admin/message', array (
+				'content' => $status 
+		), 'body_content' );
+		
+		// render page layout
+		Flight::render ( 'layout', array (
+				'pagetitle' => 'Delete Table' 
+		) );
+	}
 	
 	/**
 	 * administer all blogs
@@ -487,11 +643,7 @@ class Controller {
 	public static function adminBlogs() {
 		$blogs = Model::getAllBlogs ();
 		
-		if (! is_null ( $blogs )) {
-			View::renderAdminBlogs ( $blogs );
-		} else {
-			Flight::notFound ();
-		}
+		View::renderAdminBlogs ( $blogs );
 	}
 	
 	/**
@@ -517,11 +669,15 @@ class Controller {
 				View::adminError ( 'Could not create new blog post.' );
 			}
 		} else {
-			View::renderAdminEditBlog ();
+			View::renderAdminBlog ();
 		}
 	}
 	
 	/**
+	 * edit a blog post
+	 *
+	 * @param int $id
+	 *        	ID of blog post to edit
 	 */
 	public static function adminUpdateBlog($id) {
 		$request = Flight::request ();
@@ -538,7 +694,7 @@ class Controller {
 			if (Model::updateBlogPost ( $blogpost )) {
 			}
 			
-			View::renderAdminEditBlog ( $blogpost, [ 
+			View::renderAdminBlog ( $blogpost, [ 
 					'success' => true,
 					'message' => 'Successfully updated' 
 			] );
@@ -546,7 +702,7 @@ class Controller {
 			$blog = Model::getBlogPost ( $id );
 			
 			if (! is_null ( $blog )) {
-				View::renderAdminEditBlog ( $blog );
+				View::renderAdminBlog ( $blog );
 			} else {
 				Flight::notFound ();
 			}
@@ -555,6 +711,9 @@ class Controller {
 	
 	/**
 	 * delete a blog post
+	 *
+	 * @param int $id
+	 *        	ID of blog post to delete
 	 */
 	public static function adminDeleteBlog($id) {
 		Model::deleteBlog ( $id );
@@ -563,11 +722,38 @@ class Controller {
 	}
 	
 	/**
+	 * post some randomised comments
+	 */
+	public static function adminBlogFakeComments($id, $num) {
+		$faker = Faker\Factory::create ( 'en_AU' );
+		
+		// $num is an optional parameter
+		if (is_null ( $num )) {
+			$num = 5;
+		}
+		
+		for($i = 0; $i < $num; $i ++) {
+			$comment = [ 
+					'content' => $faker->paragraph 
+			];
+			
+			// chance of author name
+			if ($faker->numberBetween ( 0, 2 )) {
+				$comment ['author'] = $faker->firstName;
+			}
+			
+			Model::newBlogComment ( $id, $comment );
+		}
+		
+		Flight::redirect ( "/admin/blogs/$id" );
+	}
+	
+	/**
 	 * post some randomised blog posts
 	 *
-	 * @param $num int
+	 * @param int $num
 	 *        	number of posts to create, defaults to 7
-	 * @param $comments bool
+	 * @param bool $comments
 	 *        	fake comments with each blog post, defaults to false
 	 */
 	public static function adminFakeBlogs($num, $comments = false) {
@@ -593,7 +779,7 @@ class Controller {
 			} else {
 				// add some fake comments
 				if ($comments) {
-					Controller::fakeComments ( $id, $faker->numberBetween ( 0, 15 ) );
+					Controller::adminBlogFakeComments ( $id, $faker->numberBetween ( 0, 15 ) );
 				}
 			}
 		}
@@ -601,14 +787,7 @@ class Controller {
 		$status = "Created $i blog posts.";
 		
 		// render page content
-		Flight::render ( 'admin/message', array (
-				'content' => $status 
-		), 'body_content' );
-		
-		// render page layout
-		Flight::render ( 'layout', array (
-				'pagetitle' => 'Insert Faked Data' 
-		) );
+		Flight::redirect ( '/admin/blogs' );
 	}
 	
 	/**
@@ -634,6 +813,12 @@ class Controller {
 	 * show front page of blogs, or subsequent pages
 	 */
 	public static function blogs($page) {
+		if (! Model::tableExists())
+		{
+			// handle first run
+			Flight::redirect('/admin');
+		}
+		
 		if (! is_null ( $page )) {
 			$blogsAndPages = Model::getBlogsPage ( $page );
 		} else {
@@ -685,74 +870,20 @@ class Controller {
 			Flight::notFound ();
 		}
 	}
-	
-	/**
-	 * create blog table and show outcome
-	 */
-	public static function createTable() {
-		if (Model::migrationUp ()) {
-			$status = 'Table created.';
-		} else {
-			$status = 'Unexpected error.';
-		}
+	public static function search() {
+		$query = Flight::request ()->query ['q'];
 		
-		// render page content
-		Flight::render ( 'admin/message', array (
-				'content' => $status 
-		), 'body_content' );
+		$blogs = Model::getBlogsContaining ( $query );
 		
-		// render page layout
-		Flight::render ( 'layout', array (
-				'pagetitle' => 'Create Table' 
-		) );
+		View::renderSearch ( $query, $blogs );
 	}
-	
-	/**
-	 * delete blog table and show outcome
-	 */
-	public static function deleteTable() {
-		if (Model::migrationDown ()) {
-			$status = 'Table deleted.';
-		} else {
-			$status = 'Unexpected error.';
-		}
-		
-		// render page content
-		Flight::render ( 'admin/message', array (
-				'content' => $status 
-		), 'body_content' );
-		
-		// render page layout
-		Flight::render ( 'layout', array (
-				'pagetitle' => 'Delete Table' 
-		) );
+	public static function install() {
+		Model::migrationUp ();
+		Flight::redirect ( '/admin' );
 	}
-	
-	/**
-	 * post some randomised comments
-	 */
-	public static function fakeComments($id, $num) {
-		$faker = Faker\Factory::create ( 'en_AU' );
-		
-		// $num is an optional parameter
-		if (is_null ( $num )) {
-			$num = 5;
-		}
-		
-		for($i = 0; $i < $num; $i ++) {
-			$comment = [ 
-					'content' => $faker->paragraph 
-			];
-			
-			// chance of author name
-			if ($faker->numberBetween ( 0, 2 )) {
-				$comment ['author'] = $faker->firstName;
-			}
-			
-			Model::newBlogComment ( $id, $comment );
-		}
-		
-		return "Added $i comments.";
+	public static function uninstall() {
+		Model::migrationDown ();
+		Flight::redirect ( '/admin' );
 	}
 	
 	/**
@@ -761,7 +892,7 @@ class Controller {
 	public static function register() {
 		// admin interface pages
 		Flight::route ( '/admin', [ 
-				'View',
+				'Controller',
 				'adminIndex' 
 		] );
 		
@@ -773,12 +904,12 @@ class Controller {
 		// admin high level functions
 		Flight::route ( '/admin/install', [ 
 				'Controller',
-				'createTable' 
+				'install' 
 		] );
 		
 		Flight::route ( '/admin/uninstall', [ 
 				'Controller',
-				'deleteTable' 
+				'uninstall' 
 		] );
 		
 		// admin blog post pages - special pages first
@@ -824,11 +955,19 @@ class Controller {
 				'Controller',
 				'blog' 
 		] );
+		
+		Flight::route ( '/search', [ 
+				'Controller',
+				'search' 
+		] );
 	}
 }
 
 Controller::register ();
 
+/**
+ * TODO: remove before submittal *
+ */
 Flight::route ( '/debug', function () {
 	$client = DynamoDbClient::factory ( [ 
 			'region' => 'ap-southeast-2',

@@ -1,28 +1,35 @@
 <?php
-if (! isset ( $query )) {
-	$query = '';
-}
+$resultsDateFormat = 'l j, Y';
 ?>
 
-<h2>Search</h2>
-
-<form name="search" action="" method="get">
-	<input type="search" value="<?php echo $query; ?>"> <input
-		type="submit" value="Search">
-</form>
-<hr>
-
-<?php if (isset($results)):?>
-<?php if (count($results)):?>
-<?php foreach ($results as $result):?>
 <div>
-	<h2>Title</h2>
-	<p>Content</p>
+	<h2><?php echo count($blogs); ?> Blogs containing '<?php echo $query; ?>'</h2>
+	<hr>
+</div>
+<?php
+
+if (isset ( $blogs ) && count ( $blogs )) :
+	
+	$keys = array_keys ( $blogs );
+	$lastkey = end ( $keys );
+	
+	foreach ( $blogs as $key => $blog ) :
+		?>
+<div>
+	<h3>
+		<a href="/blogs/<?php echo $blog['id']; ?>"><?php echo $blog['title']; ?></a>
+	</h3>
+	<p class="blog-post-meta">
+	<?php echo date($resultsDateFormat, $blog['time']); if (isset($blog['author'])) echo ' by '.$blog['author']; ?>
+	</p>
+	
+	<?php if ($key != $lastkey):?>
+	<hr>
+	<?php endif;?>
 </div>
 <?php endforeach; ?>
 <?php else:?>
 <div>
 	<p>No search results.</p>
 </div>
-<?php endif;?>
 <?php endif;?>

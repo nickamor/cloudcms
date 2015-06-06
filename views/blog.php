@@ -37,7 +37,7 @@ $postDateFormat = 'l j, Y';
 			<label for="author" class="col-sm-2 control-label">Name</label>
 			<div class="col-sm-3">
 				<input id="author" name="author" type="text" placeholder="Name"
-					class="form-control">
+					required="required" class="form-control">
 			</div>
 		</div>
 		<div class="form-group">

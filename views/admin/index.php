@@ -1,15 +1,15 @@
-<?php 
-// TODO - hide/show tools conditionally
-?>
+<?php if (!$tableExists): ?>
 
-<ul>
-	<li><a href="/admin/install">Create Database Table</a></li>
+<ul class="nav nav-pills">
+	<li role="presentation"><a href="/admin/install">Create Database Table</a></li>
 </ul>
-<ul>
-	<li><a href="/admin/blogs/new">New Blog Post</a></li>
-	<li><a href="/admin/blogs/newfake">Generate Faked Blog Posts</a></li>
-	<li><a href="/admin/blogs/deleteall">Delete All Blog Posts</a></li>
+
+<?php else: ?>
+<ul class="nav nav-pills">
+	<li role="presentation"><a href="/admin/blogs">Manage Blog Posts</a></li>
 </ul>
-<ul>
-	<li><a href="/admin/uninstall">Delete Database Table</a></li>
+<ul class="nav nav-pills">
+	<li role="presentation"><a href="/admin/uninstall">Delete Database Table</a></li>
 </ul>
+
+<?php endif; ?>

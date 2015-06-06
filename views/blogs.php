@@ -9,7 +9,7 @@ $summaryDateFormat = 'l j, Y';
 	<p class="lead blog-description">Blog subtitle and description</p>
 </div>
 
-<?php if (isset($blogs)):?>
+<?php if (isset($blogs) && !is_null($blogs) && count($blogs)):?>
 <?php
 
 	$keys = array_keys ( $blogs );
@@ -27,7 +27,7 @@ $summaryDateFormat = 'l j, Y';
 	<?php echo date($summaryDateFormat, $blog['time']); if (isset($blog['author'])) echo ' by '.$blog['author']; ?>
 	</p>
 	
-	<?php if (strlen($blog['content']) >= $summaryLength): ?>
+	<?php if (strlen($blog['content']) > $summaryLength): ?>
 	<p><?php echo str_split($blog['content'], $summaryLength)[0]; ?>...</p>
 	<?php else :?>
 	<p><?php echo $blog['content']?></p>
