@@ -71,6 +71,7 @@ class Model {
 		$blogpost ['time'] = time ();
 		$blogpost ['id'] = $newID;
 		
+		// add new blog post to database
 		try {
 			$client->putItem ( array (
 					'TableName' => Model::$dbapp_blogposts,
@@ -106,6 +107,7 @@ class Model {
 			
 			$response = $client->getItem ( $request );
 			
+			// format database output
 			return $marshaler->unmarshalItem ( $response ['Item'] );
 		} catch ( Exception $e ) {
 			return null;
@@ -149,6 +151,9 @@ class Model {
 	
 	/**
 	 * delete a given blog post
+	 *
+	 * @param int $id
+	 *        	ID of blog post to delete
 	 */
 	public static function deleteBlog($id) {
 		$client = Model::client ();
@@ -169,6 +174,8 @@ class Model {
 	
 	/**
 	 * getAllBlogs - get all blog posts
+	 *
+	 * @return an array of blog post objects, or null if there are none or an error occurred
 	 */
 	public static function getAllBlogs() {
 		$client = Model::client ();
@@ -206,7 +213,7 @@ class Model {
 	 *
 	 * @param int $page
 	 *        	page to return
-	 * @return array of blogposts from db
+	 * @return array of blog posts from db
 	 */
 	public static function getBlogsPage($page = 0) {
 		$client = Model::client ();
@@ -314,21 +321,12 @@ class Model {
 	public static function deleteAllBlogPosts() {
 		$client = Model::client ();
 		
-		// iterate over all database items and delete them
 		$scan = $client->getIterator ( 'Scan', [ 
 				'TableName' => Model::$dbapp_blogposts 
 		] );
 		
 		foreach ( $scan as $item ) {
-			// TODO - marshal
-			$client->deleteItem ( [ 
-					'TableName' => Model::$dbapp_blogposts,
-					'Key' => [ 
-							'id' => [ 
-									'N' => $item ['id'] ['N'] 
-							] 
-					] 
-			] );
+			Model::deleteBlog ( $item ['id'] ['N'] );
 		}
 	}
 	
@@ -417,6 +415,8 @@ class Model {
 	
 	/**
 	 * bring down database table
+	 *
+	 * @return true if successful, otherwise a string of the operation result
 	 */
 	public static function migrationDown() {
 		$client = Model::client ();
@@ -467,6 +467,9 @@ class View {
 	
 	/**
 	 * show admin dashboard
+	 *
+	 * @param bool $tableExists
+	 *        	which form to display, depending on whether the database table has been set up
 	 */
 	public static function renderAdminIndex($tableExists) {
 		// show admin dashboard
@@ -568,7 +571,8 @@ class View {
 	 *
 	 * @param string $query
 	 *        	search query to display
-	 * @param array $blogs        	
+	 * @param array $blogs
+	 *        	blog posts to display
 	 */
 	public static function renderSearch($query, $blogs) {
 		Flight::render ( 'search.php', [ 
@@ -598,6 +602,9 @@ class View {
  *        
  */
 class Controller {
+	/**
+	 * show functions for administering the application
+	 */
 	public static function adminIndex() {
 		View::renderAdminIndex ( Model::tableExists () );
 	}
@@ -654,6 +661,7 @@ class Controller {
 	}
 	
 	/**
+	 * create a new blog post
 	 */
 	public static function adminNewBlog() {
 		$request = Flight::request ();
@@ -729,6 +737,11 @@ class Controller {
 	
 	/**
 	 * post some randomised comments
+	 *
+	 * @param int $id
+	 *        	ID of blog post to comment on
+	 * @param int $num
+	 *        	number of comments to create
 	 */
 	public static function adminBlogFakeComments($id, $num) {
 		$faker = Faker\Factory::create ( 'en_AU' );
@@ -875,6 +888,10 @@ class Controller {
 			Flight::notFound ();
 		}
 	}
+	
+	/**
+	 * search all blog posts for a given query and show the result
+	 */
 	public static function search() {
 		$query = Flight::request ()->query ['q'];
 		
@@ -882,10 +899,18 @@ class Controller {
 		
 		View::renderSearch ( $query, $blogs );
 	}
+	
+	/**
+	 * initialise the application database
+	 */
 	public static function install() {
 		Model::migrationUp ();
 		Flight::redirect ( '/admin' );
 	}
+	
+	/**
+	 * delete the database table in preparation of uninstalling the application
+	 */
 	public static function uninstall() {
 		Model::migrationDown ();
 		Flight::redirect ( '/admin' );
@@ -938,7 +963,6 @@ class Controller {
 				'adminUpdateBlog' 
 		] );
 		
-		// TODO - move modification functions to POST methods?
 		Flight::route ( '/admin/blogs/@id/delete', [ 
 				'Controller',
 				'adminDeleteBlog' 
@@ -970,47 +994,10 @@ class Controller {
 
 Controller::register ();
 
-/**
- * TODO: remove before submittal *
- */
-Flight::route ( '/debug', function () {
-	$client = DynamoDbClient::factory ( [ 
-			'region' => 'ap-southeast-2',
-			'profile' => 'dbapp-profile' 
-	] );
-	
-	$marshaler = new Marshaler ();
-	
-	$responses = [ ];
-	$key = null;
-	$done = false;
-	
-	do {
-		$request = [ 
-				'TableName' => 'dbapp-blogposts',
-				'Count' => true,
-				'Limit' => 10 
-		];
-		
-		if (isset ( $response ) && isset ( $response ['LastEvaluatedKey'] )) {
-			$request ['ExclusiveStartKey'] = $response ['LastEvaluatedKey'];
-		}
-		
-		$response = $client->scan ( $request );
-		
-		array_push ( $responses, $response );
-	} while ( isset ( $response ['LastEvaluatedKey'] ) );
-	
-	Flight::render ( 'admin/message', [ 
-			'content' => '<pre>' . implode ( "", $responses ) . '</pre>' 
-	], 'body_content' );
-	Flight::render ( 'layout' );
-} );
-
 // override default 404 message
 Flight::map ( 'notFound', [ 
 		'View',
-		'fileNotFound' 
+		'renderFileNotFound' 
 ] );
 
 Flight::start ();
