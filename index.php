@@ -501,9 +501,16 @@ class View {
 	 *        	optional status message of previous action
 	 */
 	public static function renderAdminBlog($blog = null, $result = null) {
-		Flight::render ( 'admin/blog', [ 
-				'blog' => $blog 
-		], 'body_content' );
+		if (isset ( $result ) && ! is_null ( $result )) {
+			Flight::render ( 'admin/blog', [ 
+					'blog' => $blog,
+					'result' => $result 
+			], 'body_content' );
+		} else {
+			Flight::render ( 'admin/blog', [ 
+					'blog' => $blog 
+			], 'body_content' );
+		}
 		Flight::render ( 'layout' );
 	}
 	
@@ -691,10 +698,9 @@ class Controller {
 					'content' => $request->data->content 
 			];
 			
-			if (Model::updateBlogPost ( $blogpost )) {
-			}
+			Model::updateBlogPost ( $blogpost );
 			
-			View::renderAdminBlog ( $blogpost, [ 
+			View::renderAdminBlog ( Model::getBlogPost ( $id ), [ 
 					'success' => true,
 					'message' => 'Successfully updated' 
 			] );
@@ -813,10 +819,9 @@ class Controller {
 	 * show front page of blogs, or subsequent pages
 	 */
 	public static function blogs($page) {
-		if (! Model::tableExists())
-		{
+		if (! Model::tableExists ()) {
 			// handle first run
-			Flight::redirect('/admin');
+			Flight::redirect ( '/admin' );
 		}
 		
 		if (! is_null ( $page )) {

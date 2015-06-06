@@ -4,6 +4,7 @@ if (! is_null ( $blog )) {
 } else {
 	$blog = [ 
 			'id' => '',
+			'time' => '',
 			'title' => '',
 			'author' => '',
 			'content' => '' 
@@ -31,12 +32,12 @@ $postDateFormat = 'r';
 <div <?php if ( isset($result['success'])) :?>
 	class="alert alert-success" <?php else:?> class="alert alert-danger"
 	<?php endif;?> role="alert">
-	<p><?php echo $message; ?></p>
+	<p><?php echo $result['message']; ?></p>
 </div>
 <?php endif; ?>
 
 <div class="blog-post-editor">
-	<?php if ($editing) :?>
+	<?php if ($editing): ?>
 	<p class="blog-post-meta">Created <?php echo date($postDateFormat, $blog['time']); ?></p>
 	<?php endif; ?>
 
