@@ -1,0 +1,22 @@
+Search
+Admin index
+Edit/manage comments
+Favicon
+404 page refresh (remove link to front page?)
+Update /admin/blogs/* functions to POST
+Return status to page alert
+Add admin buttons to admin blog view
+Sometimes admin blogs index doesn't refresh - add last updated to header?
+
+Blog editor!
+
+Tags/categories
+
+Import Export
+
+
+** When scanning for blogs, filter to only receive necessary data (ie. no comments)
+
+** Admin session utilising DDB session plugin
+
+** Async operations
