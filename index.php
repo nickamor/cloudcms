@@ -29,9 +29,9 @@ class Model {
 	 * @return \Aws\DynamoDb\DynamoDbClient
 	 */
 	private static function client() {
-		$factoryOptions = array (
+		$factoryOptions = [
 				'region' => 'ap-southeast-2' 
-		);
+		];
 		
 		// use profile configuration file if environment isn't set
 		// useful for local testing
