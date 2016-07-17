@@ -1,0 +1,21 @@
+{
+  "name": "cloud-dbapp",
+  "authors": [
+    "Nicholas Amor <nick.amor@gmail.com>"
+  ],
+  "description": "A simple blogging engine for Amazon Elastic Beanstalk",
+  "main": "index.php",
+  "license": "MIT",
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "^3.3.6"
+  }
+}

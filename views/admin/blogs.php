@@ -1,3 +1,4 @@
+<ul class="nav nav-pills"><li role="presentation"><a href=".">Return</a></li></ul>
 
 <ul class="nav nav-pills">
   <li role="presentation"><a href="/admin/blogs/new">Create</a></li>

@@ -2,7 +2,7 @@
 <html>
 <head>
 <title><?php if (isset($pagetitle)) echo "$pagetitle - "; ?>cloud-dbapp</title>
-<link rel="stylesheet" href="/static/css/bootstrap.min.css">
+<link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="/static/css/dbapp-theme.css">
 </head>
 <body>

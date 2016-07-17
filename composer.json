@@ -1,0 +1,17 @@
+{
+    "name": "nickamor/cloud-dbapp",
+    "description": "A simple blogging engine for Amazon Elastic Beanstalk",
+    "require": {
+        "aws/aws-sdk-php": "^3.18",
+        "mikecao/flight": "^1.2"
+    },
+    "require-dev": {
+        "fzaninotto/faker": "^1.5"
+    },
+    "authors": [
+        {
+            "name": "Nicholas Amor",
+            "email": "nick.amor@gmail.com"
+        }
+    ]
+}

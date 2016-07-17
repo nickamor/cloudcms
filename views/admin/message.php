@@ -4,3 +4,4 @@
 </div>
 <?php endif;?>
 <p><?php echo $content; ?></p>
+<p><a href=".">Return</a></p>
